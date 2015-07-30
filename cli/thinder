@@ -5,6 +5,13 @@ file=$(basename "${BASH_SOURCE[0]}")
 cd $root
 
 . lib/cli-utils
+. lib/thinder-environment.sh
+
+THINDER_ROOT=/var/thinder
+THINDER_NET_BRIDGE=thinder0
+THINDER_NET_ADDR="10.0.0.1/24"
+THINDER_BTRFS_IMAGE=/thinder_storage
+LOG_LEVEL=${LOG_LEVEL:-5}
 
 function usage {
 	local cmdlen=${#file}
@@ -63,7 +70,7 @@ if [[ ! "${1:-}" == "" ]]; then
 	subcmd=$1
 	if [[ -d "${file}-${subcmd}" ]] && [[ -f "${file}-${subcmd}/${file}-${subcmd}" ]]; then
 		shift
-		export LOG_LEVEL
+		export LOG_LEVEL THINDER_ROOT THINDER_NET_BRIDGE THINDER_NET_ADDR THINDER_BTRFS_IMAGE
 		"${file}-${subcmd}/${file}-${subcmd}" $@
 	else
 		critical "'${subcmd}' is not a valid Thinder subcommand"

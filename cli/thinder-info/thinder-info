@@ -6,6 +6,7 @@ cd $root
 
 . ../lib/cli-utils
 . ../lib/os.sh
+. ../lib/thinder-environment.sh
 
 set_thinder_description "Displays information about the system, images or instances"
 
@@ -42,13 +43,15 @@ done
 
 case "${1:-environment}" in
 	environment)
+		thinder_check_storage_environment || false
 		get_os os
 		ips=$(ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | tr '\n' ' ')
 		echo "Active containers: 0"
 		echo "Total containers: 0"
 		echo "Images: 0"
 		echo "Storage driver: btrfs"
-		echo "Root directory: /dev/null"
+		echo "Storage environment: $THINDER_ROOT"
+		echo "Storage environment container: $THINDER_BTRFS_IMAGE"
 		echo "Kernel version: $(uname -r)"
 		echo "Operating system: $os"
 		echo "Architecture: $(uname -m)"
