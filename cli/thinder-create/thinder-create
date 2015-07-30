@@ -6,6 +6,6 @@ cd $root
 
 . ../lib/cli-utils
 
-set_thinder_description "Show logs"
+set_thinder_description "Create a new instance"
 
 echo "hoi"

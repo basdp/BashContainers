@@ -6,6 +6,6 @@ cd $root
 
 . ../lib/cli-utils
 
-set_thinder_description "Show logs"
+set_thinder_description "Display and modify the routetable for an instance"
 
 echo "hoi"

@@ -6,6 +6,6 @@ cd $root
 
 . ../lib/cli-utils
 
-set_thinder_description "Show logs"
+set_thinder_description "List all available images"
 
 echo "hoi"

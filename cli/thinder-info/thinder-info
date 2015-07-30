@@ -6,6 +6,6 @@ cd $root
 
 . ../lib/cli-utils
 
-set_thinder_description "Displays systemwide information"
+set_thinder_description "Displays information about the system, images or instances"
 
 echo "hoi"
