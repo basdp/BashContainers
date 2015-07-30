@@ -6,6 +6,6 @@ cd $root
 
 . ../lib/cli-utils
 
-set_thinder_description "Configure the Thinder environment to serve an application running on an instance"
+set_thinder_description "Serve an application from this environment"
 
 echo "hoi"

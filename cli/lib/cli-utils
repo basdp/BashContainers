@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 [[ $_ == $0 ]] && echo "this is not an executable" && exit 1
+dir="$( dirname "${BASH_SOURCE[0]}" )"
+
+. $dir/upvars.sh
 
 LOG_LEVEL="${LOG_LEVEL:-6}" # 7 = debug, 0 = emergency
 
@@ -17,7 +20,7 @@ function _fmt {
 		# don't use colors on pipes or non-recognized terminals
 		color=""; color_reset=""
 	fi
-	echo -e "$(date -u +"%Y-%m-%d %H:%M:%S UTC") ${color}$(printf "[%9s]" ${1})${color_reset}"
+	echo -e "$(date +"%Y-%m-%d %H:%M:%S") ${color}$(printf "%-9s" ${1})${color_reset}"
 }
 
 function emergency () {                             echo "$(_fmt emergency) ${@}" 1>&2 || true; exit 1; }
@@ -35,4 +38,22 @@ function set_thinder_description {
 		echo $1
 		exit 0
 	fi
+}
+
+function thinder_getopt {
+	local param="$1"
+	if [[ "$param" == "" ]]; then
+		return 1
+	elif [[ "$param" == "--"* ]] && [[ ${#param} -gt 2 ]]; then
+		# long option
+		local arr=(${param/\=/ })
+    	local "$2" "$3" && upvars -v "$2" "${arr[0]}" -v "$3" "${arr[1]:-}"
+	elif [[ "$param" == "-"* ]] && [[ ${#param} -gt 1 ]] && [[ ! "$param" == "--" ]]; then
+		# short option
+    	local arr=(${param/\=/ })
+    	local "$2" "$3" && upvars -v "$2" "${arr[0]}" -v "$3" "${arr[1]:-}"
+	else
+		return 1
+	fi
+	return 0
 }

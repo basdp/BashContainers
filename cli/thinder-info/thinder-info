@@ -5,7 +5,67 @@ file=$(basename "${BASH_SOURCE[0]}")
 cd $root
 
 . ../lib/cli-utils
+. ../lib/os.sh
 
 set_thinder_description "Displays information about the system, images or instances"
 
-echo "hoi"
+function usage {
+	local cmdlen=${#file}
+	echo "Usage: ${file/\-/ } [args...]"
+	echo
+	echo "Displays information about the system, images or instances"
+	echo
+	echo "Options:"
+	echo "  --help               Print this usage information"
+	echo
+	echo "Commands:"
+	echo "    environment        Print information about the Thinder environment"
+	echo "                                         (* default when no target given)"
+	echo "    image NAME|ID      Print information about an image"
+	echo "    instance NAME|ID   Print information about an instance"
+	echo
+}
+
+while thinder_getopt "${1:-}" opt val; do
+	debug "processing subcommand option $opt"
+	case $opt in
+		--help | -h)
+			usage
+			exit 0;
+			;;
+		*)
+			error "unknown option: $opt"
+			exit 1
+	esac
+	shift
+done
+
+case "${1:-environment}" in
+	environment)
+		get_os os
+		ips=$(ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | tr '\n' ' ')
+		echo "Active containers: 0"
+		echo "Total containers: 0"
+		echo "Images: 0"
+		echo "Storage driver: btrfs"
+		echo "Root directory: /dev/null"
+		echo "Kernel version: $(uname -r)"
+		echo "Operating system: $os"
+		echo "Architecture: $(uname -m)"
+		echo "CPUs: $(nproc)"
+		echo "Total memory: $(cat /proc/meminfo | grep MemTotal | sed 's/MemTotal:\s*//')"
+		echo "IP address: $ips"
+		echo "Name: $(hostname)"
+		echo "Cluster membership: no"
+		exit 0;
+		;;
+	image)
+		critical todo
+		;;
+	instance)
+		critical todo
+		;;
+	*)
+		critical "'${1}' is not a valid info subcommand"
+		exit 1
+esac

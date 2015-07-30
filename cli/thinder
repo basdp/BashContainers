@@ -31,6 +31,44 @@ function usage {
 
 if [[ $# -eq 0 ]]; then
 	# no parameters
+	debug "no parameters given, print out usage"
 	usage
 	exit 0
 fi
+
+while thinder_getopt "${1:-}" opt val; do
+	debug "processing global option $opt"
+	case $opt in
+		--help | -h)
+			usage
+			exit 0;
+			;;
+		--verbose | -v | --loglevel)
+			if [[ "${val:-}" == "" ]]; then val=5; fi
+			if [ "$val" -ge 1 -a "$val" -le 7 ]; then
+				LOG_LEVEL=$val
+			else
+				error "log level should be between 1..7 inclusive"
+				exit 1
+			fi
+			;;
+		*)
+			error "unknown option: $opt"
+			exit 1
+	esac
+	shift
+done
+
+if [[ ! "${1:-}" == "" ]]; then
+	subcmd=$1
+	if [[ -d "${file}-${subcmd}" ]] && [[ -f "${file}-${subcmd}/${file}-${subcmd}" ]]; then
+		shift
+		export LOG_LEVEL
+		"${file}-${subcmd}/${file}-${subcmd}" $@
+	else
+		critical "'${subcmd}' is not a valid Thinder subcommand"
+		exit 1
+	fi
+fi
+
+exit 0
