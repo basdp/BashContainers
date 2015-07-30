@@ -2,10 +2,104 @@
 set -o errexit -o nounset -o pipefail; shopt -s nullglob
 root=${0%/*}
 file=$(basename "${BASH_SOURCE[0]}")
-cd $root
 
-. ../lib/cli-utils
+. $root/../lib/cli-utils
+. $root/../lib/thinder-environment.sh
 
-set_thinder_description "List all available images"
+set_thinder_description "List and manage images"
 
-echo "hoi"
+function usage {
+	local cmdlen=${#file}
+	echo "Usage: ${file/\-/ } [args...]"
+	echo
+	echo $THINDER_DESCRIPTION
+	echo
+	echo "Options:"
+	echo "  -h, --help                 Print this usage information"
+	echo
+	echo "Commands:"
+	echo "    list                     List all available images"
+	echo
+	echo "    import LOCATION          Import an image into the storage environment"
+	echo
+	echo "    delete ID                Import an image into the storage environment"
+	echo
+}
+
+if [[ $# -eq 0 ]]; then
+	# no parameters
+	debug "no parameters given, print out usage"
+	usage
+	exit 0
+fi
+
+while thinder_getopt "${1:-}" opt val; do
+	debug "processing subcommand option $opt"
+	case $opt in
+		--help | -h)
+			usage
+			exit 0;
+			;;
+		*)
+			error "unknown option: $opt"
+			exit 1
+	esac
+	shift
+done
+
+case "${1:-}" in
+	import)
+		shift
+		[[ "${1:-}" == "" ]] && critical "thinder images import requires a LOCATION parameter" && exit 1
+		thinder_check_storage || (critical "Storage is not sane, importing an image is not possible" && exit 1)
+		if [[ -d "$1" ]]; then
+			# extracted image
+			[[ -d "$1/payload" ]] && [[ -e "$1/meta" ]] && [[ -e "$1/thinderfile" ]] || (critical "'$1' is not a valid image" && exit 1)
+			[[ ! -d "$THINDER_ROOT/images" ]] && mkdir -p "$THINDER_ROOT/images"
+			UUID=$(cat /proc/sys/kernel/random/uuid)
+			ID=${UUID:${#UUID}-12}
+			if cp -ap "$1" "$THINDER_ROOT/images/${ID}"; then
+				notice "image imported succesfully"
+			else
+				error "image import failed"
+			fi
+		elif [[ -e "$1" ]]; then
+			critical "'$1' is of unknown format"
+			exit 1
+		else
+			critical "No such file or directory: $1" 
+		fi
+		;;
+	list)
+		shift
+		printf "ID\t\tName\t\tVersion\n"
+		hasimages=0
+		for image in "$THINDER_ROOT/images/"*; do
+			if [[ -d "$image" ]] && [[ -f "$image/meta" ]]; then
+				hasimages=1
+				. "$image/meta"
+				ID=$(basename "$image")
+				printf "$ID\t%-16s$version\n" $name
+			fi
+		done
+		if [[ hasimages -eq 0 ]]; then
+			printf " No images in this storage environment available\n"
+		fi
+		echo
+		;;
+	delete)
+		shift
+		[[ "${1:-}" == "" ]] && critical "thinder images delete requires an ID parameter" && exit 1
+		thinder_check_storage || (critical "Storage is not sane, importing an image is not possible" && exit 1)
+		if [[ -d "$THINDER_ROOT/images/$1" ]]; then
+			rm -rf "$THINDER_ROOT/images/$1"
+			notice "image with ID '$1' has been deleted"
+			exit 0
+		else
+			error "image with ID '$1' is not found" && exit 1
+		fi
+		;;
+	*)
+		critical "'${1}' is not a valid $file subcommand"
+		exit 1
+esac

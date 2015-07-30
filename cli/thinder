@@ -2,10 +2,9 @@
 set -o errexit -o nounset -o pipefail; shopt -s nullglob
 root=${0%/*}
 file=$(basename "${BASH_SOURCE[0]}")
-cd $root
 
-. lib/cli-utils
-. lib/thinder-environment.sh
+. $root/lib/cli-utils
+. $root/lib/thinder-environment.sh
 
 THINDER_ROOT=/var/thinder
 THINDER_NET_BRIDGE=thinder0
@@ -20,11 +19,14 @@ function usage {
 	echo "Linux app containers on steroids"
 	echo
 	echo "Options:"
-	echo "  --help            Print this usage information"
+	echo "  --help                   Print this usage information"
+	echo "  --storage-root=d         Specify storage environment root"
+	echo "  --storage-container=f    Specify default storage container"
 	echo
 	echo "Commands:"
+	pushd $root > /dev/null
 	for subcmd in *; do
-		if [[ -d "$subcmd" ]] && [[ -f "${subcmd}/${subcmd}" ]] && [[ $subcmd == "${file}-"* ]]; then
+		if [[ -d "$root/$subcmd" ]] && [[ -f "$root/${subcmd}/${subcmd}" ]] && [[ $subcmd == "${file}-"* ]]; then
 			local name=${subcmd:cmdlen+1}
 			echo -n "    ${name}"
 			local n=$((16-${#name}))
@@ -32,9 +34,9 @@ function usage {
 			"${root}/${subcmd}/${subcmd}" __descr
 		fi
 	done
+	popd > /dev/null
 	echo
 }
-
 
 if [[ $# -eq 0 ]]; then
 	# no parameters
@@ -59,6 +61,14 @@ while thinder_getopt "${1:-}" opt val; do
 				exit 1
 			fi
 			;;
+		--storage-root)
+			[[ "$val" == "" ]] && critical "$opt expects a parameter" && exit 1
+			THINDER_ROOT="$val"
+			;;
+		--storage-container)
+			[[ "$val" == "" ]] && critical "$opt expects a parameter" && exit 1
+			THINDER_BTRFS_IMAGE="$val"
+			;;
 		*)
 			error "unknown option: $opt"
 			exit 1
@@ -71,7 +81,7 @@ if [[ ! "${1:-}" == "" ]]; then
 	if [[ -d "${file}-${subcmd}" ]] && [[ -f "${file}-${subcmd}/${file}-${subcmd}" ]]; then
 		shift
 		export LOG_LEVEL THINDER_ROOT THINDER_NET_BRIDGE THINDER_NET_ADDR THINDER_BTRFS_IMAGE
-		"${file}-${subcmd}/${file}-${subcmd}" $@
+		"$root/${file}-${subcmd}/${file}-${subcmd}" $@
 	else
 		critical "'${subcmd}' is not a valid Thinder subcommand"
 		exit 1
