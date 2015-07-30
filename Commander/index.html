@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="Thinder.Commander">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Thinder Cloud Commander</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="stylesheet" href="bower_components/font-awesome/css/font-awesome.css" />
+    <link rel="stylesheet/less" type="text/css" href="styles.less" />
+    <script src="bower_components/less/dist/less.min.js" type="text/javascript"></script>
+</head>
+<body ng-controller="AppCtrl">
+    <header>
+        <h1><span class="icon"><i class="fa fa-cloud"></i></span> Thinder Cloud <b>Commander</b></h1>
+        <div class="notifications">
+            <div class="number">
+                12
+            </div>
+        </div>
+        <div class="messages">
+            <div class="number">
+                2
+            </div>
+        </div>
+        <div class="user">
+            <div class="avatar">
+                <img src="http://www.gravatar.com/avatar/6316be034b12f59dbd6c54bcd12670e2">
+            </div>
+            <div class="name">
+                Bas du Pré
+            </div>
+        </div>
+    </header>
+
+    <commander-side-menu>
+        <commander-side-menu-item caption="Dashboard" icon="tachometer" ng-click="navigateTo('home')" url="home"></commander-side-menu-item>
+        <commander-side-menu-item caption="Cluster" icon="cogs" ng-click="navigateTo('cluster')" url="cluster"></commander-side-menu-item>
+        <commander-side-menu-item caption="Storage" icon="database" ng-click="navigateTo('storage')" url="storage"></commander-side-menu-item>
+        <commander-side-menu-item caption="Jobs" icon="tasks" ng-click="navigateTo('jobs')" url="jobs"></commander-side-menu-item>
+        <commander-side-menu-item caption="Apps" icon="cubes" ng-click="navigateTo('apps')" url="apps"></commander-side-menu-item>
+
+    </commander-side-menu>
+
+    <div class="mainview" ng-view></div>
+
+    <footer>
+        Thinder Commander v<span thinder-commander-version></span>
+    </footer>
+
+
+    <script src="bower_components/angular/angular.min.js"></script>
+    <script src="bower_components/angular-route/angular-route.min.js"></script>
+
+    <script src="app.js"></script>
+    <script src="directives/version.js"></script>
+    <script src="directives/sideMenu/sideMenu.js"></script>
+    <script src="pages/home/home.js"></script>
+</body>
+</html>
