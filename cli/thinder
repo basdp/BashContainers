@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -o errexit -o nounset -o pipefail; shopt -s nullglob
+root=${0%/*}
+file=$(basename "${BASH_SOURCE[0]}")
+cd $root
+
+. lib/cli-utils
+
+function usage {
+	local cmdlen=${#file}
+	echo "Usage: ${file} [OPTIONS] COMMAND [args...]"
+	echo
+	echo "Linux app containers on steroids"
+	echo
+	echo "Options:"
+	echo "  --help            Print this usage information"
+	echo
+	echo "Commands:"
+	for subcmd in *; do
+		if [[ -d "$subcmd" ]] && [[ -f "${subcmd}/${subcmd}" ]] && [[ $subcmd == "${file}-"* ]]; then
+			local name=${subcmd:cmdlen+1}
+			echo -n "    ${name}"
+			local n=$((16-${#name}))
+			printf ' %.0s' $(seq 1 $n)
+			"${root}/${subcmd}/${subcmd}" __descr
+		fi
+	done
+	echo
+}
+
+
+if [[ $# -eq 0 ]]; then
+	# no parameters
+	usage
+	exit 0
+fi
