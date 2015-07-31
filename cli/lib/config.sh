@@ -16,7 +16,7 @@ function import_config_file {
 	cat $1 | sed 's/\#.*//' ` # remove comments on content lines` \
 	       | grep '^[a-zA-Z0-9\.]\+\s*=' ` # only match key=value lines` \
 	       | awk -F'=' '{gsub(/\./, "_", $1); gsub(/'"'"'/, "'"'"'\"'"'"'\"'"'"'", $2); print $1"="$2}' ` # replace the . with _ for keys and ' for \' for values` \
-	       | sed 's/^\([a-zA-Z0-9\_]\+\)\s*=\s*\([^ \t\r\n]*\)\s*$/\1='"'"'\2'"'"'/g' ` # convert to bash variable definitions ` \
+	       | perl -pe 's/^\s*([a-zA-Z0-9\_]+)\s*=\s*(.*?)\s*$/\1='"'"'\2'"'"'\n/g' ` # convert to bash variable definitions ` \
 	       > $tmp
 		  
 	. $tmp

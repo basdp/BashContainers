@@ -55,3 +55,14 @@ function extract_targz {
 	
 	return 0
 }
+
+function get_btrfs_subvolume_size {
+	# $1 subvolume
+	local vol=$(echo "$1" | sed 's:^'"$THINDER_ROOT"'::')
+	if [[ ${vol:0:1} = "/" ]]; then
+		vol=${vol:1}
+	fi
+	local id=$(btrfs subvolume list "$THINDER_ROOT" | grep "$vol" | awk '{print $2}')
+	local excl=$(btrfs qgroup show "$THINDER_ROOT" | grep "[0-9]\+\/${id}\s" | awk '{print $3}')
+	local "$2" && upvar $2 "${excl}";
+}

@@ -150,6 +150,8 @@ case "${1:-environment}" in
 			exit 1
 		fi
 		mount -o loop "$filename" "$THINDER_ROOT" || critical "error connecting to storage container" && exit 1
+		btrfs quota disable "$THINDER_ROOT"
+		btrfs quota enable "$THINDER_ROOT"
 		;;
 	*)
 		critical "'${1}' is not a valid $file subcommand"

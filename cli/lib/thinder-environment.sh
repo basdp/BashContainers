@@ -42,7 +42,7 @@ function thinder_check_storage {
 function thinder_get_image_id_from_name_and_version {
 	## Gets the Image ID from the name and version
 	
-	thinder_check_storage || (critical "Storage is not sane, importing an image is not possible" && exit 1)
+	thinder_check_storage || (critical "Storage is not sane" && exit 1)
 	
 	for image in "$THINDER_ROOT/images/"*; do
 		if [[ -d "$image" ]] && [[ -f "$image/meta" ]]; then
@@ -64,4 +64,33 @@ function thinder_get_image_id_from_identifier {
 	
 	arr=(${1/\:/ })
 	thinder_get_image_id_from_name_and_version "${arr[0]}" "${arr[1]}" "$2"
+}
+
+function thinder_get_image_id_from_string {
+	if [[ -d "$THINDER_ROOT/images/$1" ]] && [[ -f "$THINDER_ROOT/images/$1/meta" ]]; then
+		# id
+		local "$2" && upvar $2 "$1"
+		return 0
+	fi
+	thinder_get_image_id_from_identifier "$1" "$2"
+}
+
+function thinder_get_instance_id_from_name {
+	## Gets the Instance ID from the name
+		
+	thinder_check_storage || (critical "Storage is not sane" && exit 1)
+	
+	for instance in "$THINDER_ROOT/instances/"*; do
+		if [[ -d "$instance" ]] && [[ -f "$instance/meta" ]]; then
+			import_config_file "$instance/meta"
+			if [[ "$name" == "$1" ]]; then
+				local ID=$(basename "$instance")
+				local "$2" && upvar $2 "$ID"
+				return 0
+			fi
+		fi
+	done
+	
+	local "$2" && upvar $2 ""
+	return 1
 }

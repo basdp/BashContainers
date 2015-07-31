@@ -63,34 +63,97 @@ while thinder_getopt "${1:-}" opt val; do
 done
 
 case "${1:-}" in
-	import)
+	create)
 		shift
-		NAME=""
-		VERSION=""
-		while thinder_getopt "${1:-}" opt val; do
-			debug "processing subsubcommand option $opt"
-			case $opt in
-				--name)
-					if [[ "$val" == "" ]]; then
-						critical "$opt expects a parameter"
-						exit 1
-					fi
-					NAME="$val"
-					;;
-				--version)
-					if [[ "$val" == "" ]]; then
-						critical "$opt expects a parameter"
-						exit 1
-					fi
-					VERSION="$val"
-					;;
-				*)
-					critical "unknown option: $opt"
-					exit 1
-			esac
-			shift
-		done
+		INSTANCE_NAME="${2:-}"
 		
+		[[ "${1:-}" == "" ]] && critical "thinder instace create requires a IMAGE parameter" && exit 1
+		thinder_check_storage || (critical "Storage is not sane, creating an instance is not possible" && exit 1)
+		[[ ! -d "$THINDER_ROOT/instances" ]] && mkdir -p "$THINDER_ROOT/instances"
+		
+		thinder_get_image_id_from_string $1 IMAGE_ID || true
+
+		if [[ ! "$IMAGE_ID" = "" ]]; then
+
+			get_uid INSTANCE_ID
+
+			import_config_file "$THINDER_ROOT/images/${IMAGE_ID}/meta"
+			IMAGE_NAME=$name
+			IMAGE_VERSION=$version
+			
+			info "Creating an instance from image '$IMAGE_NAME', version '$IMAGE_VERSION'..."
+			
+			if [[ "$INSTANCE_NAME" = "" ]]; then
+				INSTANCE_NAME="${IMAGE_NAME}_${IMAGE_VERSION}"
+			fi 
+			
+			# check if this name and version already exist
+			newname=""
+			c=2
+			thinder_get_instance_id_from_name "$INSTANCE_NAME" oid || true
+			while [[ ! "$oid" == "" ]]; do
+				newname="${INSTANCE_NAME}_$c"
+				thinder_get_instance_id_from_name "$newname" oid || true
+				(( c++ ))
+			done
+			if [[ ! "$newname" = "" ]]; then
+				INSTANCE_NAME="$newname"
+			fi
+			
+			info "The instance shall be named '$INSTANCE_NAME'"
+			
+			# TODO: depencency on btrfs, if the user doesn't use BTRFS, this should be handled by a simple cp
+			mkdir "$THINDER_ROOT/instances/$INSTANCE_ID"
+			btrfs subvolume snapshot "$THINDER_ROOT/images/$IMAGE_ID/payload" "$THINDER_ROOT/instances/$INSTANCE_ID/root" > /dev/null
+			cp "$THINDER_ROOT/images/$IMAGE_ID/thinderfile" "$THINDER_ROOT/instances/$INSTANCE_ID/thinderfile"
+			cat > "$THINDER_ROOT/instances/$INSTANCE_ID/meta" <<EOL
+name=${INSTANCE_NAME}
+image.name=${IMAGE_NAME} 
+image.version=${IMAGE_VERSION}
+image.id=${IMAGE_ID}
+creationdate=$(date +"%Y-%m-%d %H:%M:%S")
+EOL
+
+			notice "Instance '$INSTANCE_NAME' created succesfully"
+			
+			info "Instance ID is $INSTANCE_ID"
+		else
+			critical "'${1}' is not a valid image ID or identifier"
+		fi
+		;;
+	list)
+		shift
+		printf "ID\t\tActive\tName\t\t\tDate\t\t\tBase\t\t\tSize\n"
+		hasinstances=0
+		for instance in "$THINDER_ROOT/instances/"*; do
+			if [[ -d "$instance" ]] && [[ -f "$instance/meta" ]]; then
+				hasinstances=1
+				import_config_file "$instance/meta"
+				ID=$(basename "$instance")
+				#size=$(du -s $instance | awk '{print $1}' | human)
+				get_btrfs_subvolume_size "$instance" disksize
+				disksize="$(echo $disksize | human)"
+				printf "$ID\t \t%-24s%-24s%-24s$disksize\n" $name "$creationdate" "$image_name:$image_version"
+			fi
+		done
+		if [[ hasinstances -eq 0 ]]; then
+			printf " No instances in this storage environment available\n"
+		fi
+		echo
+		;;
+	delete)
+		shift
+		[[ "${1:-}" == "" ]] && critical "thinder instance delete requires an ID parameter" && exit 1
+		thinder_check_storage || (critical "Storage is not sane, deleting an image is not possible" && exit 1)
+		if [[ -d "$THINDER_ROOT/instances/$1" ]]; then
+			btrfs subvolume delete "$THINDER_ROOT/instances/$1/root" > /dev/null
+			rm -rf "$THINDER_ROOT/instances/$1"
+			notice "instance with ID '$1' has been deleted"
+			exit 0
+		else
+			error "instance with ID '$1' is not found" && exit 1
+		fi
+		;;
 	*)
 		critical "'${1}' is not a valid $file subcommand"
 		exit 1

@@ -106,8 +106,7 @@ case "${1:-}" in
 			# extracted image
 			( [[ -d "$1/payload" ]] || [[ -f "$1/payload.tar.gz" ]] ) && [[ -e "$1/meta" ]] && [[ -e "$1/thinderfile" ]] || (critical "'$1' is not a valid image" && exit 1)
 			[[ ! -d "$THINDER_ROOT/images" ]] && mkdir -p "$THINDER_ROOT/images"
-			UUID=$(cat /proc/sys/kernel/random/uuid)
-			ID=${UUID:${#UUID}-12}
+			get_uid ID
 			if copytree "$1" "$THINDER_ROOT/images/${ID}"; then
 				# check if we need to extract the payload
 				if [[ -f "$THINDER_ROOT/images/${ID}/payload.tar.gz" ]]; then
@@ -120,7 +119,14 @@ case "${1:-}" in
 					fi
 					rm -rf "$THINDER_ROOT/images/${ID}/payload.tar.gz"
 				fi
-				notice "image imported succesfully"
+				info "Creating BTRFS subvolume..."
+				mv "$THINDER_ROOT/images/${ID}/payload" "$THINDER_ROOT/images/${ID}/payload.tmp"
+				btrfs subvolume create "$THINDER_ROOT/images/${ID}/payload"
+				sleep 1
+				mv "$THINDER_ROOT/images/${ID}/payload.tmp/"* "$THINDER_ROOT/images/${ID}/payload/"
+				rmdir "$THINDER_ROOT/images/${ID}/payload.tmp"
+
+				notice "Image imported succesfully"
 				
 				# handle the rename and reversion actions
 				if [[ ! "$NAME" = "" ]]; then
@@ -186,6 +192,7 @@ case "${1:-}" in
 		[[ "${1:-}" == "" ]] && critical "thinder images delete requires an ID parameter" && exit 1
 		thinder_check_storage || (critical "Storage is not sane, importing an image is not possible" && exit 1)
 		if [[ -d "$THINDER_ROOT/images/$1" ]]; then
+			btrfs subvolume delete "$THINDER_ROOT/images/$1/payload" > /dev/null
 			rm -rf "$THINDER_ROOT/images/$1"
 			notice "image with ID '$1' has been deleted"
 			exit 0
