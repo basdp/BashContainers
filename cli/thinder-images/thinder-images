@@ -58,7 +58,7 @@ done
 function image_set_meta {
 	[[ ! -d "$THINDER_ROOT/images/$1" ]] && critical "Image with ID '$1' is not found" && exit 1
 	
-	sed -i 's/^'$2'\s*=.*$/'$2'=\"'$3'\"/' "$THINDER_ROOT/images/${1}/meta"
+	sed -i 's/^'$2'\s*=.*$/'$2'='$3'/' "$THINDER_ROOT/images/${1}/meta"
 }
 
 function image_rename {
@@ -111,7 +111,7 @@ case "${1:-}" in
 			if copytree "$1" "$THINDER_ROOT/images/${ID}"; then
 				# check if we need to extract the payload
 				if [[ -f "$THINDER_ROOT/images/${ID}/payload.tar.gz" ]]; then
-					notice "Extracting image payload..."
+					info "Extracting image payload..."
 					extract_targz "$THINDER_ROOT/images/${ID}/payload.tar.gz" "$THINDER_ROOT/images/${ID}"
 					if [[ ! $? = 0 ]]; then
 						critical "Could not extract image payload"

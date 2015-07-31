@@ -43,10 +43,10 @@ function extract_targz {
 	output=$(tar --list -f $1 | head -n 1) || true
 	while kill -s 0 $tar_pid &> /dev/null; do # while tar is running
 		START=$(date +%s.%N)
-		progress="$( du -sb $2/$output  2> /dev/null | awk '{print $1}' | sed 's/[^0-9.]*//g' || echo 0)" || true
+		progress="$( du -sb $2/$output  2> /dev/null | awk '{print $1}' | sed 's/[^0-9.]*//g' || echo 10)" || true
 		END=$(date +%s.%N)
-		SECS=$(LC_ALL="en_US.UTF-8" awk -v start="${START}" -v end="${END}" 'BEGIN { printf "%.2f", (end-start)*5; exit(0) }')
-		percentage=$(( ($progress * 100) / $sourcesize ))
+		SECS=$(LC_ALL="en_US.UTF-8" awk -v start="${START}" -v end="${END}" 'BEGIN { printf "%.2f", (end-start)*3; exit(0) }')
+		percentage=$(( ($progress * 100) / $sourcesize )) || true
 		print_progress $percentage 'Extracting...\r'
 		
 		sleep 0.5
