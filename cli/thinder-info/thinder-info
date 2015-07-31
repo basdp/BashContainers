@@ -6,6 +6,7 @@ file=$(basename "${BASH_SOURCE[0]}")
 . $root/../lib/cli-utils
 . $root/../lib/os.sh
 . $root/../lib/thinder-environment.sh
+. $root/../lib/config.sh
 
 set_thinder_description "Displays information about the system, images or instances"
 
@@ -44,11 +45,13 @@ case "${1:-environment}" in
 	environment)
 		thinder_check_storage_environment || false
 		get_os os
+		storage_driver=$(mount | grep /var/thinder | grep -o 'type [a-zA-Z0-9]\+' | awk '{print $2}' || echo "(not connected)")
 		ips=$(ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | tr '\n' ' ')
+		echo "Thinder Environment version: $THINDER_VERSION"
 		echo "Active containers: 0"
-		echo "Total containers: 0"
-		echo "Images: 0"
-		echo "Storage driver: btrfs"
+		echo "Total containers: $(ls $THINDER_ROOT/containers 2>/dev/null | wc -l)"
+		echo "Images: $(ls $THINDER_ROOT/images 2>/dev/null | wc -l)"
+		echo "Storage driver: $storage_driver"
 		echo "Storage environment: $THINDER_ROOT"
 		echo "Storage environment container: $THINDER_BTRFS_IMAGE"
 		echo "Storage environment size: $(du -sh /thinder_storage | cut -f1)"

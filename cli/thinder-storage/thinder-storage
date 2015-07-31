@@ -6,6 +6,7 @@ cd $root
 
 . ../lib/cli-utils
 . ../lib/thinder-environment.sh
+. ../lib/config.sh
 
 set_thinder_description "Manage the Thinder environment storage"
 
@@ -140,6 +141,14 @@ case "${1:-environment}" in
 			exit 1
 		fi
 		notice "connecting container $filename to environment $THINDER_ROOT... "
+		if [[ ! -d "$THINDER_ROOT" ]]; then
+			warning "the mountpoint $THINDER_ROOT doesn't exist, creating it for you"
+			mkdir -p "$THINDER_ROOT"
+		fi
+		if [[ "$(ls -A "$THINDER_ROOT")" ]]; then
+			critical "the mountpoint $THINDER_ROOT is not empty"
+			exit 1
+		fi
 		mount -o loop "$filename" "$THINDER_ROOT" || critical "error connecting to storage container" && exit 1
 		;;
 	*)

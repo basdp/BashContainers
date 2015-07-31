@@ -3,6 +3,7 @@
 dir="$( dirname "${BASH_SOURCE[0]}" )"
 
 . $dir/upvars.sh
+. $dir/config.sh
 
 function thinder_check_storage_environment {
 	if [[ ! -f $THINDER_BTRFS_IMAGE ]]; then
@@ -36,4 +37,31 @@ function thinder_check_storage {
 		return 1
 	fi
 	return 0
+}
+
+function thinder_get_image_id_from_name_and_version {
+	## Gets the Image ID from the name and version
+	
+	thinder_check_storage || (critical "Storage is not sane, importing an image is not possible" && exit 1)
+	
+	for image in "$THINDER_ROOT/images/"*; do
+		if [[ -d "$image" ]] && [[ -f "$image/meta" ]]; then
+			import_config_file "$image/meta"
+			if [[ "$name" == "$1" ]] && [[ "$version" == "$2" ]]; then
+				local ID=$(basename "$image")
+				local "$3" && upvar $3 "$ID"
+				return 0
+			fi
+		fi
+	done
+	
+	local "$3" && upvar $3 ""
+	return 1
+}
+
+function thinder_get_image_id_from_identifier {
+	## Gets the Image ID from the image identifier (name:version)
+	
+	arr=(${1/\:/ })
+	thinder_get_image_id_from_name_and_version "${arr[0]}" "${arr[1]}" "$2"
 }

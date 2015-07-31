@@ -5,12 +5,18 @@ file=$(basename "${BASH_SOURCE[0]}")
 
 . $root/lib/cli-utils
 . $root/lib/thinder-environment.sh
+. $root/lib/config.sh
 
-THINDER_ROOT=/var/thinder
-THINDER_NET_BRIDGE=thinder0
-THINDER_NET_ADDR="10.0.0.1/24"
-THINDER_BTRFS_IMAGE=/thinder_storage
-LOG_LEVEL=${LOG_LEVEL:-5}
+[[ -f $root/thinder.conf ]] && import_config_file $root/thinder.conf
+[[ -f /etc/thinder.conf ]] && import_config_file /etc/thinder.conf
+[[ -f ~/.thinder.conf ]] && import_config_file ~/.thinder.conf
+
+THINDER_ROOT=${thinder_storage_root:-/var/thinder}
+THINDER_NET_BRIDGE=${thinder_net_bridge:-thinder0}
+THINDER_NET_ADDR=${thinder_net_addr:-"10.0.0.1/24"}
+THINDER_BTRFS_IMAGE=${thinder_storage_container:-/thinder_storage}
+
+THINDER_VERSION="0.0.1"
 
 function usage {
 	local cmdlen=${#file}
@@ -19,9 +25,11 @@ function usage {
 	echo "Linux app containers on steroids"
 	echo
 	echo "Options:"
-	echo "  --help                   Print this usage information"
+	echo "  -h, --help               Print this usage information"
+	echo "  -V, --version            Print the version"
 	echo "  --storage-root=d         Specify storage environment root"
 	echo "  --storage-container=f    Specify default storage container"
+	echo "  -v, --verbose            Specify the verbosity of the log output (1-7)"
 	echo
 	echo "Commands:"
 	pushd $root > /dev/null
@@ -52,8 +60,12 @@ while thinder_getopt "${1:-}" opt val; do
 			usage
 			exit 0;
 			;;
+		--version | -V)
+			echo "Thinder Environment version $THINDER_VERSION"
+			exit 0;
+			;;
 		--verbose | -v | --loglevel)
-			if [[ "${val:-}" == "" ]]; then val=5; fi
+			if [[ "${val:-}" == "" ]]; then val=6; fi
 			if [ "$val" -ge 1 -a "$val" -le 7 ]; then
 				LOG_LEVEL=$val
 			else
@@ -80,7 +92,7 @@ if [[ ! "${1:-}" == "" ]]; then
 	subcmd=$1
 	if [[ -d "${file}-${subcmd}" ]] && [[ -f "${file}-${subcmd}/${file}-${subcmd}" ]]; then
 		shift
-		export LOG_LEVEL THINDER_ROOT THINDER_NET_BRIDGE THINDER_NET_ADDR THINDER_BTRFS_IMAGE
+		export LOG_LEVEL THINDER_ROOT THINDER_NET_BRIDGE THINDER_NET_ADDR THINDER_BTRFS_IMAGE THINDER_VERSION
 		"$root/${file}-${subcmd}/${file}-${subcmd}" $@
 	else
 		critical "'${subcmd}' is not a valid Thinder subcommand"

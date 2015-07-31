@@ -4,18 +4,25 @@ dir="$( dirname "${BASH_SOURCE[0]}" )"
 
 . $dir/upvars.sh
 
-LOG_LEVEL="${LOG_LEVEL:-6}" # 7 = debug, 0 = emergency
+LOG_LEVEL="${LOG_LEVEL:-5}" # 7 = debug, 0 = emergency
 
 function _fmt {
 	local color_ok="\x1b[32m"
 	local color_bad="\x1b[31m"
+	local color_warning="\x1b[33m"
+	local color_reset="\x1b[0m"
 	
 	local color="${color_bad}"
-	if [ "${1}" = "debug" ] || [ "${1}" = "info" ] || [ "${1}" = "notice" ]; then
+	if [ "${1}" = "notice" ]; then
 		color="${color_ok}"
 	fi
+	if [ "${1}" = "warning" ]; then
+		color="${color_warning}"
+	fi
+	if [ "${1}" = "debug" ] || [ "${1}" = "info" ]; then
+		color="${color_reset}"
+	fi
 	
-	local color_reset="\x1b[0m"
 	if [[ "${TERM}" != "xterm"* ]] || [ -t 1 ]; then
 		# don't use colors on pipes or non-recognized terminals
 		color=""; color_reset=""

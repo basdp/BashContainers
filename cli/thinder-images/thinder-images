@@ -5,6 +5,8 @@ file=$(basename "${BASH_SOURCE[0]}")
 
 . $root/../lib/cli-utils
 . $root/../lib/thinder-environment.sh
+. $root/../lib/fileservices.sh
+. $root/../lib/config.sh
 
 set_thinder_description "List and manage images"
 
@@ -15,14 +17,20 @@ function usage {
 	echo $THINDER_DESCRIPTION
 	echo
 	echo "Options:"
-	echo "  -h, --help                 Print this usage information"
+	echo "  -h, --help                     Print this usage information"
 	echo
 	echo "Commands:"
-	echo "    list                     List all available images"
+	echo "    list                         List all available images"
 	echo
-	echo "    import LOCATION          Import an image into the storage environment"
+	echo "    import [args...] LOCATION    Import an image into the storage environment"
+	echo "        --name=s                 Set the imported image name"
+	echo "        --version=s              Set the imported image version" 
 	echo
-	echo "    delete ID                Import an image into the storage environment"
+	echo "    delete ID                    Import an image into the storage environment"
+	echo
+	echo "    rename ID NAME               Rename an image"
+	echo
+	echo "    setver ID VERSION            Set the version of an image"
 	echo
 }
 
@@ -47,20 +55,105 @@ while thinder_getopt "${1:-}" opt val; do
 	shift
 done
 
+function image_set_meta {
+	[[ ! -d "$THINDER_ROOT/images/$1" ]] && critical "Image with ID '$1' is not found" && exit 1
+	
+	sed -i 's/^'$2'\s*=.*$/'$2'=\"'$3'\"/' "$THINDER_ROOT/images/${1}/meta"
+}
+
+function image_rename {
+	[[ ! $2 =~ ^[a-zA-Z][a-zA-Z0-9]*$ ]] && critical "Image name may only contain alphanumeric characters and may not start with a number" && exit 1
+	image_set_meta $1 name $2
+}
+
+function image_set_version {
+	[[ ! $2 =~ ^[a-zA-Z0-9\.\-\+,\_]+$ ]] && critical "Image version may only contain the following characters: a-z, A-Z, 0-9, '.', '-', '_', '+', ','" && exit 1
+	image_set_meta $1 version $2
+}
+
 case "${1:-}" in
 	import)
 		shift
+		NAME=""
+		VERSION=""
+		while thinder_getopt "${1:-}" opt val; do
+			debug "processing subsubcommand option $opt"
+			case $opt in
+				--name)
+					if [[ "$val" == "" ]]; then
+						critical "$opt expects a parameter"
+						exit 1
+					fi
+					NAME="$val"
+					;;
+				--version)
+					if [[ "$val" == "" ]]; then
+						critical "$opt expects a parameter"
+						exit 1
+					fi
+					VERSION="$val"
+					;;
+				*)
+					critical "unknown option: $opt"
+					exit 1
+			esac
+			shift
+		done
+		
 		[[ "${1:-}" == "" ]] && critical "thinder images import requires a LOCATION parameter" && exit 1
 		thinder_check_storage || (critical "Storage is not sane, importing an image is not possible" && exit 1)
 		if [[ -d "$1" ]]; then
 			# extracted image
-			[[ -d "$1/payload" ]] && [[ -e "$1/meta" ]] && [[ -e "$1/thinderfile" ]] || (critical "'$1' is not a valid image" && exit 1)
+			( [[ -d "$1/payload" ]] || [[ -f "$1/payload.tar.gz" ]] ) && [[ -e "$1/meta" ]] && [[ -e "$1/thinderfile" ]] || (critical "'$1' is not a valid image" && exit 1)
 			[[ ! -d "$THINDER_ROOT/images" ]] && mkdir -p "$THINDER_ROOT/images"
 			UUID=$(cat /proc/sys/kernel/random/uuid)
 			ID=${UUID:${#UUID}-12}
-			if rsync -a "$1" "$THINDER_ROOT/images/${ID}"; then
+			if copytree "$1" "$THINDER_ROOT/images/${ID}"; then
+				# check if we need to extract the payload
+				if [[ -f "$THINDER_ROOT/images/${ID}/payload.tar.gz" ]]; then
+					notice "Extracting image payload..."
+					tar xzf "$THINDER_ROOT/images/${ID}/payload.tar.gz" -C "$THINDER_ROOT/images/${ID}"
+					if [[ ! $? = 0 ]]; then
+						critical "Could not extract image payload"
+						rm -rf "$THINDER_ROOT/images/${ID}"
+						exit 1
+					fi
+					rm -rf "$THINDER_ROOT/images/${ID}/payload.tar.gz"
+				fi
 				notice "image imported succesfully"
+				
+				# handle the rename and reversion actions
+				if [[ ! "$NAME" = "" ]]; then
+					info "Rename the image to '$NAME'"
+					image_rename $ID $NAME
+				fi 
+				if [[ ! "$VERSION" = "" ]]; then
+					info "Set the image version to '$VERSION'"
+					image_set_version $ID $VERSION
+				fi
+				
+				# check if this name and version already exist
+				import_config_file "$THINDER_ROOT/images/${ID}/meta"
+				mv "$THINDER_ROOT/images/${ID}/meta" "$THINDER_ROOT/images/${ID}/_tmp_meta"
+				newname=""
+				imagename="$name"
+				c=2
+				thinder_get_image_id_from_name_and_version $name $version oid || true
+				while [[ ! "$oid" == "" ]]; do
+					newname="${imagename}_$c"
+					thinder_get_image_id_from_name_and_version $newname $version oid || true
+					(( c++ ))
+				done
+				mv "$THINDER_ROOT/images/${ID}/_tmp_meta" "$THINDER_ROOT/images/${ID}/meta"
+				if [[ ! "$newname" = "" ]]; then
+					warning "Imported image has same name and version as already existing image"
+					notice "Rename the image to '$newname'"
+					image_rename $ID $newname
+				fi
+				
+				info "image ID is $ID"
 			else
+				rm -rf "$THINDER_ROOT/images/${ID}"
 				error "image import failed"
 			fi
 		elif [[ -e "$1" ]]; then
@@ -72,14 +165,15 @@ case "${1:-}" in
 		;;
 	list)
 		shift
-		printf "ID\t\tName\t\tVersion\n"
+		printf "ID\t\tName\t\t\tVersion\t\t\tSize\n"
 		hasimages=0
 		for image in "$THINDER_ROOT/images/"*; do
 			if [[ -d "$image" ]] && [[ -f "$image/meta" ]]; then
 				hasimages=1
-				. "$image/meta"
+				import_config_file "$image/meta"
 				ID=$(basename "$image")
-				printf "$ID\t%-16s$version\n" $name
+				size=$(du -hs $image | awk '{print $1}')
+				printf "$ID\t%-24s%-24s$size\n" $name $version
 			fi
 		done
 		if [[ hasimages -eq 0 ]]; then
@@ -98,6 +192,40 @@ case "${1:-}" in
 		else
 			error "image with ID '$1' is not found" && exit 1
 		fi
+		;;
+	rename)
+		shift
+		([[ "${1:-}" == "" ]] || [[ "${2:-}" == "" ]]) && critical "thinder images rename requires an ID and NAME parameter" && exit 1
+		thinder_check_storage || (critical "Storage is not sane, importing an image is not possible" && exit 1)
+		
+		# check for conflicts 
+		import_config_file "$THINDER_ROOT/images/$1/meta"
+		thinder_get_image_id_from_name_and_version $2 $version oid || true
+		if [[ ! "$oid" == "" ]]; then
+			critical "Image with this name and version already exists"
+			info "    Image ID: $oid"
+			exit 1 
+		fi 
+		
+		info "Rename image $1 to '$2'"
+		image_rename $1 $2
+		;;
+	setver)
+		shift
+		([[ "${1:-}" == "" ]] || [[ "${2:-}" == "" ]]) && critical "thinder images setver requires an ID and VERSION parameter" && exit 1
+		thinder_check_storage || (critical "Storage is not sane, importing an image is not possible" && exit 1)
+		
+		# check for conflicts 
+		import_config_file "$THINDER_ROOT/images/$1/meta"
+		thinder_get_image_id_from_name_and_version $name $2 oid || true
+		if [[ ! "$oid" == "" ]]; then
+			critical "Image with this name and version already exists"
+			info "    Image ID: $oid"
+			exit 1 
+		fi 
+		
+		info "Set version of image $1 to '$2'"
+		image_set_version $1 $2
 		;;
 	*)
 		critical "'${1}' is not a valid $file subcommand"
