@@ -6,6 +6,6 @@ cd $root
 
 . ../lib/cli-utils
 
-set_thinder_description "Mount a local filesystem to an internal instance filesystem"
+set_thinder_command "Mount a local filesystem to an internal instance filesystem"
 
 echo "hoi"

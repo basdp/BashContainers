@@ -6,6 +6,6 @@ cd $root
 
 . ../lib/cli-utils
 
-set_thinder_description "Serve an application from this environment"
+set_thinder_command "Serve an application from this environment"
 
 echo "hoi"

@@ -8,7 +8,7 @@ file=$(basename "${BASH_SOURCE[0]}")
 . $root/../lib/thinder-environment.sh
 . $root/../lib/config.sh
 
-set_thinder_description "Displays information about the system, images or instances"
+set_thinder_command "Displays information about the system, images or instances"
 
 function usage {
 	local cmdlen=${#file}

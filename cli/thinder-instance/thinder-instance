@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+set -o errexit -o nounset -o pipefail; shopt -s nullglob
+root=${0%/*}
+file=$(basename "${BASH_SOURCE[0]}")
+
+. $root/../lib/cli-utils
+. $root/../lib/thinder-environment.sh
+. $root/../lib/fileservices.sh
+. $root/../lib/config.sh
+
+set_thinder_command "Manage instances" "instances"
+
+function usage {
+	local cmdlen=${#file}
+	echo "Usage: ${file/\-/ } [args...]"
+	echo
+	echo $THINDER_DESCRIPTION
+	echo
+	echo "Options:"
+	echo "  -h, --help                        Print this usage information"
+	echo
+	echo "Commands:"
+	echo "    create IMAGE [NAME]             Create a new instance"
+	echo
+	echo "    kill INSTANCE                   Kill a running instance"
+	echo
+	echo "    proc INSTANCE                   List all processes running in an instance"
+	echo
+	echo "    config INSTANCE                 Configure the instance parameters"
+	echo
+	echo "    attach INSTANCE                 Attach to an instance console session"
+	echo
+	echo "    exec INSTANCE CMD               Execute a command in a running instance"
+	echo
+	echo "    set INSTANCE KEY=VALUE          Manipulate the instance settings"
+	echo
+	echo "    start INSTANCE                  Start an instance"
+	echo "        -a, --attach                Attach to the console session"
+	echo
+	echo "    status INSTANCE                 Print the instance status"
+	echo
+}
+
+if [[ $# -eq 0 ]]; then
+	# no parameters
+	debug "no parameters given, print out usage"
+	usage
+	exit 0
+fi
+
+while thinder_getopt "${1:-}" opt val; do
+	debug "processing subcommand option $opt"
+	case $opt in
+		--help | -h)
+			usage
+			exit 0;
+			;;
+		*)
+			error "unknown option: $opt"
+			exit 1
+	esac
+	shift
+done
+
+case "${1:-}" in
+	import)
+		shift
+		NAME=""
+		VERSION=""
+		while thinder_getopt "${1:-}" opt val; do
+			debug "processing subsubcommand option $opt"
+			case $opt in
+				--name)
+					if [[ "$val" == "" ]]; then
+						critical "$opt expects a parameter"
+						exit 1
+					fi
+					NAME="$val"
+					;;
+				--version)
+					if [[ "$val" == "" ]]; then
+						critical "$opt expects a parameter"
+						exit 1
+					fi
+					VERSION="$val"
+					;;
+				*)
+					critical "unknown option: $opt"
+					exit 1
+			esac
+			shift
+		done
+		
+	*)
+		critical "'${1}' is not a valid $file subcommand"
+		exit 1
+esac

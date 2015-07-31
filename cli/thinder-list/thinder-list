@@ -2,10 +2,61 @@
 set -o errexit -o nounset -o pipefail; shopt -s nullglob
 root=${0%/*}
 file=$(basename "${BASH_SOURCE[0]}")
-cd $root
 
-. ../lib/cli-utils
+. $root/../lib/cli-utils
+. $root/../lib/thinder-environment.sh
+. $root/../lib/fileservices.sh
+. $root/../lib/config.sh
 
-set_thinder_description "List all instances"
+set_thinder_command "List instances and images" "ls"
 
-echo "hoi"
+function usage {
+	local cmdlen=${#file}
+	echo "Usage: ${file/\-/ } [args...]"
+	echo
+	echo $THINDER_DESCRIPTION
+	echo
+	echo "Options:"
+	echo "  -h, --help                        Print this usage information"
+	echo
+	echo "Commands:"
+	echo "    instances                       Print a list of instances"
+	echo
+	echo "    images                          Print a list of images"
+	echo
+}
+
+if [[ $# -eq 0 ]]; then
+	# no parameters
+	debug "no parameters given, print out usage"
+	usage
+	exit 0
+fi
+
+while thinder_getopt "${1:-}" opt val; do
+	debug "processing subcommand option $opt"
+	case $opt in
+		--help | -h)
+			usage
+			exit 0;
+			;;
+		*)
+			error "unknown option: $opt"
+			exit 1
+	esac
+	shift
+done
+
+case "${1:-}" in
+	images)
+		shift
+		"$root/../thinder-image/thinder-image" list
+		;;
+	instances)
+		shift
+		"$root/../thinder-instance/thinder-instance" list
+		;;
+	*)
+		critical "'${1}' is not a valid $file subcommand"
+		exit 1
+esac

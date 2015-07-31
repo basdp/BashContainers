@@ -8,7 +8,7 @@ file=$(basename "${BASH_SOURCE[0]}")
 . $root/../lib/fileservices.sh
 . $root/../lib/config.sh
 
-set_thinder_description "List and manage images"
+set_thinder_command "List and manage images" "images"
 
 function usage {
 	local cmdlen=${#file}

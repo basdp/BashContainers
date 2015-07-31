@@ -6,6 +6,6 @@ cd $root
 
 . ../lib/cli-utils
 
-set_thinder_description "Display and modify the routetable for an instance"
+set_thinder_command "Display and modify the routetable for an instance"
 
 echo "hoi"

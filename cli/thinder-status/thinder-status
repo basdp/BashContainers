@@ -6,6 +6,6 @@ cd $root
 
 . ../lib/cli-utils
 
-set_thinder_description "Displays status of the environment or an instance"
+set_thinder_command "Displays status of the environment or an instance"
 
 echo "hoi"

@@ -40,7 +40,15 @@ function usage {
 			echo -n "    ${name}"
 			local n=$((16-${#name}))
 			printf ' %.0s' $(seq 1 $n)
-			"${root}/${subcmd}/${subcmd}" __descr
+			local descr="$("${root}/${subcmd}/${subcmd}" __descr)"
+			
+			echo -n $descr | sed '1!d'
+			aliases=$(echo -n "$descr" | sed '2!d')
+			if [[ $aliases != "" ]]; then
+				echo " (aliases: $(echo $aliases | sed 's/ /, /'))"
+			else
+				echo
+			fi
 		fi
 	done
 	popd > /dev/null
@@ -89,13 +97,40 @@ while thinder_getopt "${1:-}" opt val; do
 	shift
 done
 
+function run_command {
+	export LOG_LEVEL THINDER_ROOT THINDER_NET_BRIDGE THINDER_NET_ADDR THINDER_BTRFS_IMAGE THINDER_VERSION
+	$@
+}
+
 if [[ ! "${1:-}" == "" ]]; then
 	subcmd=$1
 	if [[ -d "${file}-${subcmd}" ]] && [[ -f "${file}-${subcmd}/${file}-${subcmd}" ]]; then
 		shift
-		export LOG_LEVEL THINDER_ROOT THINDER_NET_BRIDGE THINDER_NET_ADDR THINDER_BTRFS_IMAGE THINDER_VERSION
-		"$root/${file}-${subcmd}/${file}-${subcmd}" $@
+		run_command "$root/${file}-${subcmd}/${file}-${subcmd}" "$@"
+		exit 0
 	else
+		# hmm, not yet.. maybe it's an alias?
+		pushd $root > /dev/null
+		for po in *; do
+			if [[ -d "$root/$po" ]] && [[ -f "$root/${po}/${po}" ]] && [[ $po == "${file}-"* ]]; then
+				descr="$("${root}/${po}/${po}" __descr)"
+				aliases=$(echo -n "$descr" | sed '2!d')
+				
+				if [[ $aliases != "" ]]; then
+					arr=($aliases)
+					for a in "${arr[@]}"; do
+						if [[ "$subcmd" = "$a" ]]; then
+							shift
+							run_command "$root/${po}/${po}" "$@"
+							popd > /dev/null
+							exit 0
+						fi
+					done
+				fi
+			fi
+		done
+		popd > /dev/null
+		
 		critical "'${subcmd}' is not a valid Thinder subcommand"
 		exit 1
 	fi

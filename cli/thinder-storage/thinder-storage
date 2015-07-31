@@ -8,7 +8,7 @@ cd $root
 . ../lib/thinder-environment.sh
 . ../lib/config.sh
 
-set_thinder_description "Manage the Thinder environment storage"
+set_thinder_command "Manage the Thinder environment storage"
 
 function usage {
 	local cmdlen=${#file}

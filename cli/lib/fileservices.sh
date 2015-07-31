@@ -39,7 +39,7 @@ function copytree {
 function extract_targz {
 	tmppipe=$(mktemp -u)
 	mkfifo $tmppipe
-	tar xzSf $1 -C $2 --checkpoint=1000 --checkpoint-action=exec="sh -c \"echo \$TAR_CHECKPOINT \> $tmppipe\"" &
+	tar xzSf $1 -C $2 --checkpoint=1000 --checkpoint-action=exec="sh -c 'echo \$TAR_CHECKPOINT > $tmppipe'" &
 	tar_pid=$!
 	sourcesize=$(gzip -l $1 | tail -n 1 | awk '{print $2}')
 	output=$(tar --list -f $1 | head -n 1) || true
