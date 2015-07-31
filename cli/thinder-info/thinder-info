@@ -2,11 +2,10 @@
 set -o errexit -o nounset -o pipefail; shopt -s nullglob
 root=${0%/*}
 file=$(basename "${BASH_SOURCE[0]}")
-cd $root
 
-. ../lib/cli-utils
-. ../lib/os.sh
-. ../lib/thinder-environment.sh
+. $root/../lib/cli-utils
+. $root/../lib/os.sh
+. $root/../lib/thinder-environment.sh
 
 set_thinder_description "Displays information about the system, images or instances"
 
@@ -52,6 +51,7 @@ case "${1:-environment}" in
 		echo "Storage driver: btrfs"
 		echo "Storage environment: $THINDER_ROOT"
 		echo "Storage environment container: $THINDER_BTRFS_IMAGE"
+		echo "Storage environment size: $(du -sh /thinder_storage | cut -f1)"
 		echo "Kernel version: $(uname -r)"
 		echo "Operating system: $os"
 		echo "Architecture: $(uname -m)"

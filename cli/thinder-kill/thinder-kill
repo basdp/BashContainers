@@ -6,6 +6,6 @@ cd $root
 
 . ../lib/cli-utils
 
-set_thinder_description "Kill an instance"
+set_thinder_description "Kill a running instance"
 
 echo "hoi"

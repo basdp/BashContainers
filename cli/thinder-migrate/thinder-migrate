@@ -6,6 +6,6 @@ cd $root
 
 . ../lib/cli-utils
 
-set_thinder_description "Migrate an instance to another Thinder environment"
+set_thinder_description "Migrate images and instances between Thinder environments"
 
 echo "hoi"
