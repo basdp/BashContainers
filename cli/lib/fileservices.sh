@@ -37,22 +37,21 @@ function copytree {
 }
 
 function extract_targz {
-	tar xzSf $1 -C $2 &
+	tmppipe=$(mktemp -u)
+	mkfifo $tmppipe
+	tar xzSf $1 -C $2 --checkpoint=1000 --checkpoint-action=exec="sh -c \"echo \$TAR_CHECKPOINT \> $tmppipe\"" &
 	tar_pid=$!
 	sourcesize=$(gzip -l $1 | tail -n 1 | awk '{print $2}')
 	output=$(tar --list -f $1 | head -n 1) || true
-	while kill -s 0 $tar_pid &> /dev/null; do # while tar is running
-		START=$(date +%s.%N)
-		progress="$( du -sb $2/$output  2> /dev/null | awk '{print $1}' | sed 's/[^0-9.]*//g' || echo 10)" || true
-		END=$(date +%s.%N)
-		SECS=$(LC_ALL="en_US.UTF-8" awk -v start="${START}" -v end="${END}" 'BEGIN { printf "%.2f", (end-start)*3; exit(0) }')
-		percentage=$(( ($progress * 100) / $sourcesize )) || true
-		print_progress $percentage 'Extracting...\r'
-		
-		sleep 0.5
-		sleep $SECS
+	while kill -s 0 $tar_pid &> /dev/null; do
+		if read -t 0.5 line <>$tmppipe; then
+			progress=$((line * 10240))
+			percentage=$(( ($progress * 100) / $sourcesize )) || true
+			print_progress $percentage 'Extracting...\r'
+		fi
 	done
 	print_progress 100 'Extracted.\n'
+	rm -rf $tmppipe
 	
 	return 0
 }
