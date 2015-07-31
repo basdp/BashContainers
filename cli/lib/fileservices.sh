@@ -11,7 +11,8 @@ function print_progress {
 	filled=$(( $1 * $width / 100 ))
 	printf '\033[K['
 	printf '#%.0s' $( seq 1 $filled )
-	[[ $filled -lt $width ]] && printf ' %.0s' $( seq $filled $width )
+	if [[ $filled -eq 0 ]]; then filled=1; fi
+	[[ $filled -lt $width ]] && printf ' %.0s' $( seq $filled $((width - 1)) )
 	printf '] %d%% ' $1
 	echo -en $2
 }
@@ -27,6 +28,8 @@ function copytree {
 		SECS=$(LC_ALL="en_US.UTF-8" awk -v start="${START}" -v end="${END}" 'BEGIN { printf "%.2f", (end-start)*5; exit(0) }')
 		percentage=$(( ($copyprogress * 100) / $sourcesize ))
 		print_progress $percentage 'Copying...\r'
+		
+		sleep 0.5
 		sleep $SECS
 	done
 	print_progress 100 'Copied.\n'
@@ -45,6 +48,8 @@ function extract_targz {
 		SECS=$(LC_ALL="en_US.UTF-8" awk -v start="${START}" -v end="${END}" 'BEGIN { printf "%.2f", (end-start)*5; exit(0) }')
 		percentage=$(( ($progress * 100) / $sourcesize ))
 		print_progress $percentage 'Extracting...\r'
+		
+		sleep 0.5
 		sleep $SECS
 	done
 	print_progress 100 'Extracted.\n'

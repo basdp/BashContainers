@@ -6,6 +6,7 @@ file=$(basename "${BASH_SOURCE[0]}")
 . $root/lib/cli-utils
 . $root/lib/thinder-environment.sh
 . $root/lib/config.sh
+. $root/lib/fileservices.sh
 
 [[ -f $root/thinder.conf ]] && import_config_file $root/thinder.conf
 [[ -f /etc/thinder.conf ]] && import_config_file /etc/thinder.conf
