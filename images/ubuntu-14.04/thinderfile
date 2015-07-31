@@ -1,0 +1,7 @@
+# thinderfile
+parameter	"port" "Port" "<%PORT%>" "/etc/httpd/conf"
+
+init 		/etc/init.d/sshd start
+
+shell		bash
+
