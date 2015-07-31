@@ -58,7 +58,7 @@ case "${1:-}" in
 			[[ ! -d "$THINDER_ROOT/images" ]] && mkdir -p "$THINDER_ROOT/images"
 			UUID=$(cat /proc/sys/kernel/random/uuid)
 			ID=${UUID:${#UUID}-12}
-			if cp -ap "$1" "$THINDER_ROOT/images/${ID}"; then
+			if rsync -a "$1" "$THINDER_ROOT/images/${ID}"; then
 				notice "image imported succesfully"
 			else
 				error "image import failed"
