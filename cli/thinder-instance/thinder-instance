@@ -144,7 +144,7 @@ EOL
 	delete)
 		shift
 		[[ "${1:-}" == "" ]] && critical "thinder instance delete requires an ID parameter" && exit 1
-		thinder_check_storage || (critical "Storage is not sane, deleting an image is not possible" && exit 1)
+		thinder_check_storage || (critical "Storage is not sane, deleting an instance is not possible" && exit 1)
 		if [[ -d "$THINDER_ROOT/instances/$1" ]]; then
 			btrfs subvolume delete "$THINDER_ROOT/instances/$1/root" > /dev/null
 			rm -rf "$THINDER_ROOT/instances/$1"
@@ -152,6 +152,28 @@ EOL
 			exit 0
 		else
 			error "instance with ID '$1' is not found" && exit 1
+		fi
+		;;
+	start)
+		shift
+		cgroups='cpu,cpuacct,cpuset,memory'
+		
+		[[ "${1:-}" == "" ]] && critical "thinder instance start requires an INSTANCE parameter" && exit 1
+		thinder_check_storage || (critical "Storage is not sane, starting an instance is not possible" && exit 1)
+		if thinder_get_instance_id_from_string "$1" INSTANCE_ID; then 
+			cmd="bash"
+			cgcreate -g "$cgroups:/thinder_$INSTANCE_ID"
+			cgset -r cpuset.cpus=0-$(($(grep vendor_id /proc/cpuinfo | wc -l)-1)) "thinder_$INSTANCE_ID" 
+			cgset -r cpuset.mems=0 "thinder_$INSTANCE_ID"
+			cgset -r memory.limit_in_bytes=512000000 "thinder_$INSTANCE_ID"
+			inject_thinder_init "$THINDER_ROOT/instances/$INSTANCE_ID/root"
+			cgexec -g "$cgroups:/thinder_$INSTANCE_ID" "unshare" -fmuip --mount-proc "chroot" \
+				"$THINDER_ROOT/instances/$INSTANCE_ID/root" thinder_init \
+				 || true
+
+			exit 0
+		else
+			error "instance '$1' not found" && exit 1
 		fi
 		;;
 	*)

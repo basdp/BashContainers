@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 [[ $_ == $0 ]] && echo "this is not an executable" && exit 1
 dir="$( dirname "${BASH_SOURCE[0]}" )"
+root=${0%/*}
 
 . $dir/upvars.sh
 . $dir/config.sh
@@ -93,4 +94,17 @@ function thinder_get_instance_id_from_name {
 	
 	local "$2" && upvar $2 ""
 	return 1
+}
+
+function thinder_get_instance_id_from_string {
+	if [[ -d "$THINDER_ROOT/instances/$1" ]] && [[ -f "$THINDER_ROOT/instances/$1/meta" ]]; then
+		# id
+		local "$2" && upvar $2 "$1"
+		return 0
+	fi
+	thinder_get_instance_id_from_name "$1" "$2"
+}
+
+function inject_thinder_init {
+	cp "$dir/../run/thinder_init" "$1/sbin/thinder_init"
 }
