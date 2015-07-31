@@ -62,7 +62,7 @@ function image_set_meta {
 }
 
 function image_rename {
-	[[ ! $2 =~ ^[a-zA-Z][a-zA-Z0-9]*$ ]] && critical "Image name may only contain alphanumeric characters and may not start with a number" && exit 1
+	[[ ! $2 =~ ^[a-zA-Z][a-zA-Z0-9\_]*$ ]] && critical "Image name may only contain alphanumeric characters and may not start with a number" && exit 1
 	image_set_meta $1 name $2
 }
 
@@ -112,7 +112,7 @@ case "${1:-}" in
 				# check if we need to extract the payload
 				if [[ -f "$THINDER_ROOT/images/${ID}/payload.tar.gz" ]]; then
 					notice "Extracting image payload..."
-					tar xzf "$THINDER_ROOT/images/${ID}/payload.tar.gz" -C "$THINDER_ROOT/images/${ID}"
+					extract_targz "$THINDER_ROOT/images/${ID}/payload.tar.gz" "$THINDER_ROOT/images/${ID}"
 					if [[ ! $? = 0 ]]; then
 						critical "Could not extract image payload"
 						rm -rf "$THINDER_ROOT/images/${ID}"

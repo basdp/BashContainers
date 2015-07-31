@@ -21,6 +21,10 @@ function get_os {
 		local "$1" && upvar $1 "Red Hat";
 		return 0
 	fi
+	if grep "Raspbian" /etc/os-release &> /dev/null; then
+		local "$1" && upvar $1 "Raspbian";
+		return 0
+	fi
 	warning "couldn't find the current operating system type" 
 	local "$1" && upvar $1 $(uname -s);
 	return 0
