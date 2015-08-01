@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -o errexit -o nounset -o pipefail; shopt -s nullglob
-root=${0%/*}
 file=$(basename "${BASH_SOURCE[0]}")
+. ${0%/*}/../lib/loader.sh
 
-. $root/../lib/cli-utils
-. $root/../lib/thinder-environment.sh
-. $root/../lib/fileservices.sh
-. $root/../lib/config.sh
+include lib/cli-utils
+include lib/thinder-environment.sh
+include lib/fileservices.sh
+include lib/config.sh 
 
 set_thinder_command "List and manage images" "images"
 
