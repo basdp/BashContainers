@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+export THINDER_PROFILE=1
+
+tmpfile=$(mktemp -u)
+output="profile.$$"
+
+#TODO: this redirect stderr to the log file
+
+exec 3>&2 2> >(tee ${tmpfile}.log |
+                 sed -u 's/^.*$/now/' |
+                 date -f - +%s.%N >${tmpfile}.tim)
+set -x
+
+$@
+
+set +x
+
+paste <(
+    while read tim ;do
+        [ -z "$last" ] && last=${tim//.} && first=${tim//.}
+        crt=000000000$((${tim//.}-10#0$last))
+        ctot=000000000$((${tim//.}-10#0$first))
+        printf "%12.9f %12.9f\n" ${crt:0:${#crt}-9}.${crt:${#crt}-9} \
+                                 ${ctot:0:${#ctot}-9}.${ctot:${#ctot}-9}
+        last=${tim//.}
+      done < ${tmpfile}.tim
+  ) ${tmpfile}.log > $output
+
+rm ${tmpfile}.{log,tim}  
+echo "Profiling results are stored in $output"
