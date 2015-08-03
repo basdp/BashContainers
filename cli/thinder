@@ -21,11 +21,15 @@ THINDER_BTRFS_IMAGE=${thinder_storage_container:-/thinder_storage}
 pushd $root > /dev/null
 THINDER_VERSION="0.0.1"
 if [ -d .git ] || git rev-parse --git-dir > /dev/null 2>&1; then
-	commitnr=$(git log -1 --pretty="%H")
-	THINDER_VERSION="rev_${commitnr:0:10}"
+	tag=$(git tag --contains HEAD)
+	if [[ "$tag" == "" ]]; then
+		commitnr=$(git log -1 --pretty="%H")
+		THINDER_VERSION="rev_${commitnr:0:10}"
+	else
+		THINDER_VERSION="$tag"
+	fi
 fi
-popd
-
+popd > /dev/null
 
 function usage {
 	local cmdlen=${#file}
