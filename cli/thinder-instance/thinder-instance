@@ -218,6 +218,9 @@ EOL
 			thinder_init  > "$THINDER_ROOT/instances/$INSTANCE_ID/instance.log" 2>&1 || true &
 			
 			isolation_pid=$!
+			while [[ ! "$(ps -p $isolation_pid -o comm=)" == "unshare" ]]; do
+				isolation_pid=$(ps -o pid --no-headers --ppid ${isolation_pid} | awk '{print $1}')
+			done
 			debug "Isolation PID is $isolation_pid"
 			pid=$(ps -o pid --no-headers --ppid ${isolation_pid} | awk '{print $1}')
 			info "Container PID is $pid"
