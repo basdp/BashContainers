@@ -3,10 +3,14 @@ set -o errexit -o nounset -o pipefail; shopt -s nullglob
 root=${0%/*}
 file=$(basename "${BASH_SOURCE[0]}")
 
-. $root/../lib/cli-utils
-. $root/../lib/thinder-environment.sh
-. $root/../lib/fileservices.sh
-. $root/../lib/config.sh
+. ${0%/*}/../lib/loader.sh
+
+include lib/cli-utils
+include lib/thinder-environment.sh
+include lib/fileservices.sh
+include lib/config.sh 
+include lib/os.sh
+include lib/lock.sh
 
 set_thinder_command "Manage instances" "instances"
 
@@ -48,6 +52,20 @@ if [[ $# -eq 0 ]]; then
 	exit 0
 fi
 
+function thinder_instance_exec {
+	if thinder_get_instance_id_from_string "$1" INSTANCE_ID; then
+		if is_instance_running $INSTANCE_ID; then
+			pid=`cat "$THINDER_ROOT/instances/$INSTANCE_ID/running.pid"`
+			cmd="$2"
+			! ${3:-false} && cmd="env - TERM=xterm $cmd"
+			nsenter -t $pid -m -u -i -n -p chroot "$THINDER_ROOT/instances/$INSTANCE_ID/root" sh -c "$cmd"
+		else
+			critical "Instance $INSTANCE_ID is not running"
+		fi
+	else
+		error "instance '$1' not found" && exit 1
+	fi
+}
 while thinder_getopt "${1:-}" opt val; do
 	debug "processing subcommand option $opt"
 	case $opt in
@@ -133,7 +151,9 @@ EOL
 				#size=$(du -s $instance | awk '{print $1}' | human)
 				get_btrfs_subvolume_size "$instance" disksize
 				disksize="$(echo $disksize | human)"
-				printf "$ID\t \t%-24s%-24s%-24s$disksize\n" $name "$creationdate" "$image_name:$image_version"
+				active=" "
+				is_instance_running "$ID" && active='*'
+				printf "$ID\t$active\t%-24s%-24s%-24s$disksize\n" $name "$creationdate" "$image_name:$image_version"
 			fi
 		done
 		if [[ hasinstances -eq 0 ]]; then
@@ -145,36 +165,132 @@ EOL
 		shift
 		[[ "${1:-}" == "" ]] && critical "thinder instance delete requires an ID parameter" && exit 1
 		thinder_check_storage || (critical "Storage is not sane, deleting an instance is not possible" && exit 1)
-		if [[ -d "$THINDER_ROOT/instances/$1" ]]; then
-			btrfs subvolume delete "$THINDER_ROOT/instances/$1/root" > /dev/null
-			rm -rf "$THINDER_ROOT/instances/$1"
-			notice "instance with ID '$1' has been deleted"
+		if thinder_get_instance_id_from_string "$1" INSTANCE_ID; then
+			if is_instance_running $INSTANCE_ID; then 
+				critical "Instance $INSTANCE_ID is running, please kill it first"
+				exit 1
+			fi
+			btrfs subvolume delete "$THINDER_ROOT/instances/$INSTANCE_ID/root" > /dev/null
+			rm -rf "$THINDER_ROOT/instances/$INSTANCE_ID"
+			notice "instance with ID '$INSTANCE_ID' has been deleted"
 			exit 0
 		else
-			error "instance with ID '$1' is not found" && exit 1
+			error "instance '$1' is not found" && exit 1
 		fi
 		;;
 	start)
 		shift
+		attach=false
+		keep_env=false
+		while thinder_getopt "${1:-}" opt val; do
+			debug "processing subsubcommand option $opt"
+			case $opt in
+				--attach | -a)
+					attach=true
+					;;
+				*)
+					critical "unknown option: $opt"
+					exit 1
+			esac
+			shift
+		done
+		
 		cgroups='cpu,cpuacct,cpuset,memory'
 		
 		[[ "${1:-}" == "" ]] && critical "thinder instance start requires an INSTANCE parameter" && exit 1
 		thinder_check_storage || (critical "Storage is not sane, starting an instance is not possible" && exit 1)
-		if thinder_get_instance_id_from_string "$1" INSTANCE_ID; then 
-			cmd="bash"
+		if thinder_get_instance_id_from_string "$1" INSTANCE_ID; then
+			if is_instance_running $INSTANCE_ID; then 
+				critical "Instance $INSTANCE_ID is already running"
+				exit 1
+			fi
 			cgcreate -g "$cgroups:/thinder_$INSTANCE_ID"
 			cgset -r cpuset.cpus=0-$(($(grep vendor_id /proc/cpuinfo | wc -l)-1)) "thinder_$INSTANCE_ID" 
 			cgset -r cpuset.mems=0 "thinder_$INSTANCE_ID"
 			cgset -r memory.limit_in_bytes=512000000 "thinder_$INSTANCE_ID"
+			
 			inject_thinder_init "$THINDER_ROOT/instances/$INSTANCE_ID/root"
-			cgexec -g "$cgroups:/thinder_$INSTANCE_ID" "unshare" -fmuip --mount-proc "chroot" \
-				"$THINDER_ROOT/instances/$INSTANCE_ID/root" thinder_init \
-				 || true
-
+			
+			nohup \
+			cgexec -g "$cgroups:/thinder_$INSTANCE_ID" \
+			unshare -fmuip --mount-proc \
+			chroot "$THINDER_ROOT/instances/$INSTANCE_ID/root" \
+			thinder_init  > "$THINDER_ROOT/instances/$INSTANCE_ID/instance.log" 2>&1 || true &
+			
+			isolation_pid=$!
+			debug "Isolation PID is $isolation_pid"
+			pid=$(ps -o pid --no-headers --ppid ${isolation_pid} | awk '{print $1}')
+			info "Container PID is $pid"
+			notice "Instance with ID $INSTANCE_ID has been started"
+			echo "$pid" > "$THINDER_ROOT/instances/$INSTANCE_ID/running.pid"
+			
+			if $attach; then
+				thinder_instance_exec "$INSTANCE_ID" "login"
+			fi
+			
 			exit 0
 		else
 			error "instance '$1' not found" && exit 1
 		fi
+		;;
+	exec)
+		shift
+		keep_env=false
+		while thinder_getopt "${1:-}" opt val; do
+			debug "processing subsubcommand option $opt"
+			case $opt in
+				--env)
+					keep_env=true
+					;;
+				*)
+					critical "unknown option: $opt"
+					exit 1
+			esac
+			shift
+		done
+		
+		[[ "${1:-}" == "" ]] && critical "thinder instance exec requires an INSTANCE parameter" && exit 1
+		thinder_check_storage || (critical "Storage is not sane, exec is not possible" && exit 1)
+		instance=$1
+		shift
+		cmd="$@"
+		thinder_instance_exec "$instance" "$cmd" $keep_env
+		;;
+		
+	attach)
+		shift		
+		[[ "${1:-}" == "" ]] && critical "thinder instance exec requires an INSTANCE parameter" && exit 1
+		thinder_check_storage || (critical "Storage is not sane, exec is not possible" && exit 1)
+		thinder_instance_exec "$1" "login"
+		;;
+	kill)
+		shift
+		[[ "${1:-}" == "" ]] && critical "thinder instance kill requires an INSTANCE parameter" && exit 1
+		thinder_check_storage || (critical "Storage is not sane, killing an instance is not possible" && exit 1)
+		if thinder_get_instance_id_from_string "$1" INSTANCE_ID; then
+			if is_instance_running $INSTANCE_ID; then
+				pid=`cat "$THINDER_ROOT/instances/$INSTANCE_ID/running.pid"`
+				killtree $pid
+				notice "Instance $INSTANCE_ID has been killed"
+				rm -f "$THINDER_ROOT/instances/$INSTANCE_ID/running.pid"
+			else
+				critical "Instance $INSTANCE_ID is not running"
+			fi
+		else
+			error "instance '$1' not found" && exit 1
+		fi
+		;; 
+	stop)
+		shift		
+		[[ "${1:-}" == "" ]] && critical "thinder instance stop requires an INSTANCE parameter" && exit 1
+		thinder_check_storage || (critical "Storage is not sane, stop is not possible" && exit 1)
+		thinder_instance_exec "$1" "kill \$(cat /var/thinder/thinder_up.pid)"
+		;;
+	proc)
+		shift		
+		[[ "${1:-}" == "" ]] && critical "thinder instance proc requires an INSTANCE parameter" && exit 1
+		thinder_check_storage || (critical "Storage is not sane, proc is not possible" && exit 1)
+		thinder_instance_exec "$1" "ps auxf"
 		;;
 	*)
 		critical "'${1}' is not a valid $file subcommand"

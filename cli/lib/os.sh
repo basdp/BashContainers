@@ -29,3 +29,14 @@ function get_os {
 	local "$1" && upvar $1 $(uname -s);
 	return 0
 }
+
+function killtree {
+	local _pid=$1
+	local _sig=${2:-KILL}
+	kill -stop ${_pid} # needed to stop quickly forking parent from producing children between child killing and parent killing
+	# if ps doesn't support --ppid, one can use pgrep -P {$_pid} instead 
+	for _child in $(ps -o pid --no-headers --ppid ${_pid}); do
+		killtree ${_child} ${_sig}
+	done
+	kill -${_sig} ${_pid}
+}

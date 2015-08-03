@@ -31,7 +31,7 @@ function usage {
 	echo "    connect [args...]        Connect a storage container to this environment"
 	echo "        -f=f, --filename=f   Specifies the filename of the container"
 	echo
-	echo "    eject                    Eject the active storage container"
+	echo "    disconnect               Eject the active storage container (aliases: eject)"
 	echo
 }
 
@@ -105,7 +105,7 @@ case "${1:-environment}" in
 			warning "Abort."
 		fi
 		;;
-	eject)
+	eject | disconnect)
 		if ! mount | grep -q "$THINDER_ROOT"; then
 			error "Cannot eject, no storage environment connected"
 			exit 1
@@ -149,7 +149,8 @@ case "${1:-environment}" in
 			critical "the mountpoint $THINDER_ROOT is not empty"
 			exit 1
 		fi
-		mount -o loop "$filename" "$THINDER_ROOT" || critical "error connecting to storage container" && exit 1
+		mount -o loop "$filename" "$THINDER_ROOT" || (critical "error connecting to storage container" && exit 1)
+		
 		btrfs quota disable "$THINDER_ROOT"
 		btrfs quota enable "$THINDER_ROOT"
 		;;

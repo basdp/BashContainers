@@ -108,3 +108,13 @@ function thinder_get_instance_id_from_string {
 function inject_thinder_init {
 	cp "$dir/../run/thinder_init" "$1/sbin/thinder_init"
 }
+
+function is_instance_running {
+	if [[ ! "$1" == "" ]] && [[ -f "$THINDER_ROOT/instances/$1/running.pid" ]] && 
+		kill -0 `cat "$THINDER_ROOT/instances/$1/running.pid"` > /dev/null 2>&1; then
+		return 0
+	else
+		[[ -f "$THINDER_ROOT/instances/$1/running.pid" ]] && rm -f "$THINDER_ROOT/instances/$1/running.pid"
+		return 1
+	fi
+}

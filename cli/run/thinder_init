@@ -1,4 +1,20 @@
 #!/usr/bin/env sh
-/bin/mount -t proc proc /proc
-/bin/mount -t devpts none /dev/pts
-env - login
+echo "" > /etc/mtab
+/bin/mount -t proc proc /proc > /dev/null 2>&1
+/bin/mount -t devpts none /dev/pts > /dev/null 2>&1
+
+cat > "/sbin/thinder_up" <<EOL
+#!/usr/bin/env sh
+mkdir -p /var/thinder
+echo "$$" > /var/thinder/thinder_up.pid
+while true; do
+	sleep 60
+done
+EOL
+chmod a+x /sbin/thinder_up
+
+/sbin/thinder_up
+#env - bash
+
+umount /proc
+umount /dev/pts
