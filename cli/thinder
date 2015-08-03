@@ -18,7 +18,14 @@ THINDER_NET_BRIDGE=${thinder_net_bridge:-thinder0}
 THINDER_NET_ADDR=${thinder_net_addr:-"10.0.0.1/24"}
 THINDER_BTRFS_IMAGE=${thinder_storage_container:-/thinder_storage}
 
+pushd $root > /dev/null
 THINDER_VERSION="0.0.1"
+if [ -d .git ] || git rev-parse --git-dir > /dev/null 2>&1; then
+	commitnr=$(git log -1 --pretty="%H")
+	THINDER_VERSION="rev_${commitnr:0:10}"
+fi
+popd
+
 
 function usage {
 	local cmdlen=${#file}
