@@ -204,8 +204,9 @@ EOL
 				critical "Instance $INSTANCE_ID is already running"
 				exit 1
 			fi
+			#nproc alt: $(($(-i "^Processor\(\\s\)\+:" /proc/cpuinfo | wc -l)-1))
 			cgcreate -g "$cgroups:/thinder_$INSTANCE_ID"
-			cgset -r cpuset.cpus=0-$(($(grep vendor_id /proc/cpuinfo | wc -l)-1)) "thinder_$INSTANCE_ID" 
+			cgset -r cpuset.cpus=0-$(($(nproc)-1)) "thinder_$INSTANCE_ID" 
 			cgset -r cpuset.mems=0 "thinder_$INSTANCE_ID"
 			cgset -r memory.limit_in_bytes=512000000 "thinder_$INSTANCE_ID"
 			
@@ -215,7 +216,7 @@ EOL
 			cgexec -g "$cgroups:/thinder_$INSTANCE_ID" \
 			unshare -fmuip --mount-proc \
 			chroot "$THINDER_ROOT/instances/$INSTANCE_ID/root" \
-			thinder_init  > "$THINDER_ROOT/instances/$INSTANCE_ID/instance.log" 2>&1 || true &
+			/sbin/init & > "$THINDER_ROOT/instances/$INSTANCE_ID/instance.log" 2>&1 || true &
 			
 			isolation_pid=$!
 			while [[ ! "$(ps -p $isolation_pid -o comm=)" == "unshare" ]]; do

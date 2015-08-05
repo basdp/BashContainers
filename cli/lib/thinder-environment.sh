@@ -64,6 +64,10 @@ function thinder_get_image_id_from_identifier {
 	## Gets the Image ID from the image identifier (name:version)
 	
 	arr=(${1/\:/ })
+	if [[ ! ${#arr[@]} == 2 ]]; then
+		local "$2" && upvar $2 ""
+		return 1
+	fi
 	thinder_get_image_id_from_name_and_version "${arr[0]}" "${arr[1]}" "$2"
 }
 

@@ -45,7 +45,7 @@ case "${1:-environment}" in
 	environment)
 		thinder_check_storage_environment || false
 		get_os os
-		storage_driver=$(mount | grep /var/thinder | grep -o 'type [a-zA-Z0-9]\+' | awk '{print $2}' || echo "(not connected)")
+		storage_driver=$(mount | grep "$THINDER_ROOT" | grep -o 'type [a-zA-Z0-9]\+' | awk '{print $2}' || echo "(not connected)")
 		ips=$(ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | tr '\n' ' ')
 		echo "Thinder Environment version: $THINDER_VERSION"
 		echo "Active containers: 0"
