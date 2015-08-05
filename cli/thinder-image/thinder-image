@@ -171,7 +171,7 @@ case "${1:-}" in
 		;;
 	list)
 		shift
-		printf "ID\t\tName\t\t\tVersion\t\t\tSize\n"
+		printf "ID\t\tName\t\t\tVersion\t\t\tSize\tArch\n"
 		hasimages=0
 		for image in "$THINDER_ROOT/images/"*; do
 			if [[ -d "$image" ]] && [[ -f "$image/meta" ]]; then
@@ -179,7 +179,8 @@ case "${1:-}" in
 				import_config_file "$image/meta"
 				ID=$(basename "$image")
 				size=$(du -hs $image | awk '{print $1}')
-				printf "$ID\t%-24s%-24s$size\n" $name $version
+				arch="$(file --dereference $image/payload/sbin/init | awk -F ", " '{print $2}')"
+				printf "$ID\t%-24s%-24s$size\t$arch\n" $name $version
 			fi
 		done
 		if [[ hasimages -eq 0 ]]; then

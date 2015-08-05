@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+name="${1/\//_}"
+token="$(curl -sL -o /dev/null -D- -H 'X-Docker-Token: true' "https://index.docker.io/v1/repositories/$1/images" | tr -d '\r' | awk -F ': *' '$1 == "X-Docker-Token" { print $2 }')"
+registry='https://registry-1.docker.io/v1'
+id="$(curl -sL -H "Authorization: Token $token" "$registry/repositories/$1/tags/$2" | sed 's/"//g')"
+[[ "${#id}" -ne 64 ]] && echo "No image named '$1:$2' exists" && exit 1
+[[ -e "$name" ]] && echo "$name already exists" && exit 1
+mkdir -p "$name/payload"
+cd "$name/payload"
+ancestry="$(curl -sL -H "Authorization: Token $token" "$registry/images/$id/ancestry")"
+IFS=',' && ancestry=(${ancestry//[\[\] \"]/}) && IFS=' \n\t'
+for id in "${ancestry[@]}"; do
+	curl -#L -H "Authorization: Token $token" "$registry/images/$id/layer" -o "../layer.tar"
+	tar -x -f "../layer.tar" 
+	rm "../layer.tar"
+done
+unset IFS
+echo "$1:$2" > "../img.source"
+
