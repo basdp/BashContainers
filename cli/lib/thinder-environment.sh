@@ -26,7 +26,8 @@ function is_writable {
 
 function thinder_check_storage {
 	thinder_check_storage_environment || return 1
-	if ! mount | grep -q "$THINDER_ROOT"; then
+	mounts=$(mount | grep " on $THINDER_ROOT " | wc -l)
+	if [[ "$mounts" -lt 1 ]]; then
 		critical "No storage container has been connected to the Thinder environment"
 		notice "expected storage environment mountpoint: '$THINDER_ROOT'"
 		info "use 'thinder storage connect' to connect a storage container"
