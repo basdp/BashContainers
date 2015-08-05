@@ -216,7 +216,7 @@ EOL
 			cgexec -g "$cgroups:/thinder_$INSTANCE_ID" \
 			unshare -fmuip --mount-proc \
 			chroot "$THINDER_ROOT/instances/$INSTANCE_ID/root" \
-			/sbin/init & > "$THINDER_ROOT/instances/$INSTANCE_ID/instance.log" 2>&1 || true &
+			/sbin/init > "$THINDER_ROOT/instances/$INSTANCE_ID/instance.log" 2>&1 || true &
 			
 			isolation_pid=$!
 			while [[ ! "$(ps -p $isolation_pid -o comm=)" == "unshare" ]]; do
