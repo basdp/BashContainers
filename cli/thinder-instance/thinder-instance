@@ -308,7 +308,7 @@ EOL
 		if thinder_get_instance_id_from_string "$1" INSTANCE_ID; then
 			if is_instance_running $INSTANCE_ID; then
 				pid=`cat "$THINDER_ROOT/instances/$INSTANCE_ID/running.pid"`
-				killtree $pid
+				killtree $pid 9
 				mount | grep "\son\s$THINDER_ROOT/instances/$INSTANCE_ID/root" | awk '{print $3}' | xargs -n1 umount -f > /dev/null 2>&1 || true 
 				nsid="${INSTANCE_ID:0:5}"
 				ip link del dev veth0_"$nsid"
