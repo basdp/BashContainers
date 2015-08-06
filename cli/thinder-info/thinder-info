@@ -47,9 +47,18 @@ case "${1:-environment}" in
 		get_os os
 		storage_driver=$(mount | grep "$THINDER_ROOT" | grep -o 'type [a-zA-Z0-9]\+' | awk '{print $2}' || echo "(not connected)")
 		ips=$(ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | tr '\n' ' ')
+		numinstances=0
+		for instance in "$THINDER_ROOT/instances/"*; do
+			if [[ -d "$instance" ]] && [[ -f "$instance/meta" ]]; then
+				ID=$(basename "$instance")
+				if is_instance_running "$ID"; then
+					numinstances=$(( $numinstances + 1 ))
+				fi				
+			fi
+		done
 		echo "Thinder Environment version: $THINDER_VERSION"
-		echo "Active containers: 0"
-		echo "Total containers: $(ls $THINDER_ROOT/containers 2>/dev/null | wc -l)"
+		echo "Active instances: $numinstances"
+		echo "Total instances: $(ls $THINDER_ROOT/instances 2>/dev/null | wc -l)"
 		echo "Images: $(ls $THINDER_ROOT/images 2>/dev/null | wc -l)"
 		echo "Storage driver: $storage_driver"
 		echo "Storage environment: $THINDER_ROOT"
