@@ -82,7 +82,7 @@ function human {
                {x/=1024; s=substr(s,5)}
          s=substr(s,1,4)
          xf=(s==" B  ")?"%5d   ":"%0.2f"
-         return sprintf( xf"%s\n", x, s)
+         return sprintf(xf"%s\n", x, s)
       }
       {gsub(/^[0-9]+/, human($1)); print}'
 }

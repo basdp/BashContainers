@@ -62,7 +62,7 @@ function get_btrfs_subvolume_size {
 	if [[ ${vol:0:1} = "/" ]]; then
 		vol=${vol:1}
 	fi
-	local id=$(btrfs subvolume list "$THINDER_ROOT" | grep "$vol" | awk '{print $2}')
+	local id=$(btrfs subvolume list "$THINDER_ROOT" | grep "$vol" | head -n 1 | awk '{print $2}')
 	local excl=$(btrfs qgroup show "$THINDER_ROOT" | grep "[0-9]\+\/${id}\s" | awk '{print $3}')
 	local "$2" && upvar $2 "${excl}";
 }
