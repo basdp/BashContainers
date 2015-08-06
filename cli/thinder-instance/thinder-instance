@@ -45,6 +45,12 @@ function usage {
 	echo
 	echo "    status INSTANCE                 Print the instance status"
 	echo
+	echo "    clone INSTANCE                  Clone an instance"
+	echo "        --name=s                    Set the cloned instance name"
+	echo
+	echo "    createimage INSTANCE            Create an image from an instance"
+	echo "        --name=s                    Set the new image name"
+	echo
 }
 
 if [[ $# -eq 0 ]]; then
@@ -245,6 +251,8 @@ EOL
 			ip netns exec netns_"$nsid" ip link set dev veth1_"$nsid" up
 			ip netns exec netns_"$nsid" ip route add default via 10.20.0.1
 			cp /etc/resolv.conf "$THINDER_ROOT/instances/$INSTANCE_ID/root/etc/resolv.conf"
+			echo "nameserver 10.20.0.1" >> "$THINDER_ROOT/instances/$INSTANCE_ID/root/etc/resolv.conf" # as a fail backup
+			echo "nameserver 8.8.8.8" >> "$THINDER_ROOT/instances/$INSTANCE_ID/root/etc/resolv.conf" # as a fail backup
 			hostname=${name//[^a-zA-Z0-9]/-}
 			
 			nohup \
@@ -343,6 +351,166 @@ EOL
 		[[ "${1:-}" == "" ]] && critical "thinder instance proc requires an INSTANCE parameter" && exit 1
 		thinder_check_storage || (critical "Storage is not sane, proc is not possible" && exit 1)
 		thinder_instance_exec "$1" "ps auxf"
+		;;
+	clone)
+		shift
+		INSTANCE_NAME="${2:-}"
+		
+		[[ "${1:-}" == "" ]] && critical "thinder instace clone requires an INSTANCE parameter" && exit 1		
+		thinder_check_storage || (critical "Storage is not sane, creating an instance is not possible" && exit 1)
+		[[ ! -d "$THINDER_ROOT/instances" ]] && mkdir -p "$THINDER_ROOT/instances"
+		
+		NEW_NAME=""
+		while thinder_getopt "${1:-}" opt val; do
+			debug "processing subsubcommand option $opt"
+			case $opt in
+				--name)
+					if [[ "$val" == "" ]]; then
+						critical "$opt expects a parameter"
+						exit 1
+					fi
+					NEW_NAME="$val"
+					;;
+				*)
+					critical "unknown option: $opt"
+					exit 1
+			esac
+			shift
+		done
+		
+		if thinder_get_instance_id_from_string "$1" INSTANCE_ID; then
+			if is_instance_running $INSTANCE_ID; then
+				warning "Instance '$1' is running"
+			fi
+			get_uid NEW_ID
+			
+			import_config_file "$THINDER_ROOT/instances/${INSTANCE_ID}/meta"
+			INSTANCE_NAME="$name"
+			
+			info "Cloning instance '$INSTANCE_NAME'..."
+			
+			if [[ "$NEW_NAME" = "" ]]; then
+				NEW_NAME="${INSTANCE_NAME}"
+			fi 
+			
+			# check if this name and version already exist
+			newname=""
+			c=2
+			thinder_get_instance_id_from_name "$INSTANCE_NAME" oid || true
+			while [[ ! "$oid" == "" ]]; do
+				newname="${INSTANCE_NAME}_$c"
+				thinder_get_instance_id_from_name "$newname" oid || true
+				(( c++ ))
+			done
+			if [[ ! "$newname" = "" ]]; then
+				NEW_NAME="$newname"
+			fi
+			
+			info "The instance shall be named '$NEW_NAME'"
+			
+			# TODO: depencency on btrfs, if the user doesn't use BTRFS, this should be handled by a simple cp
+			mkdir "$THINDER_ROOT/instances/$NEW_ID"
+			btrfs subvolume snapshot "$THINDER_ROOT/instances/$INSTANCE_ID/root" "$THINDER_ROOT/instances/$NEW_ID/root" > /dev/null
+			cp "$THINDER_ROOT/instances/$INSTANCE_ID/thinderfile" "$THINDER_ROOT/instances/$NEW_ID/thinderfile"
+			cp "$THINDER_ROOT/instances/$INSTANCE_ID/meta" "$THINDER_ROOT/instances/$NEW_ID/meta"
+
+			sed -i '/^\s*\(name\)\s*=.*$/d' "$THINDER_ROOT/instances/$INSTANCE_ID/meta"
+			sed -i '/^\s*\(clonedfrom\)\s*=.*$/d' "$THINDER_ROOT/instances/$INSTANCE_ID/meta"
+			sed -i '/^\s*\(creationdate\)\s*=.*$/d' "$THINDER_ROOT/instances/$INSTANCE_ID/meta"
+			echo "name = ${NEW_NAME}" >> "$THINDER_ROOT/instances/$INSTANCE_ID/meta"
+			echo "clonedfrom = ${INSTANCE_ID}" >> "$THINDER_ROOT/instances/$INSTANCE_ID/meta"
+			echo "creationdate = $(date +"%Y-%m-%d %H:%M:%S")" >> "$THINDER_ROOT/instances/$INSTANCE_ID/meta"
+
+			notice "Instance '$INSTANCE_NAME' cloned succesfully"
+			
+			info "Instance ID is $NEW_ID"
+		else
+			error "instance '$1' not found" && exit 1
+		fi
+		;;
+	createimage)
+		shift
+		INSTANCE_NAME="${2:-}"
+		
+		[[ "${1:-}" == "" ]] && critical "thinder instance createimage requires a INSTANCE parameter" && exit 1		
+		thinder_check_storage || (critical "Storage is not sane, creating an instance is not possible" && exit 1)
+		[[ ! -d "$THINDER_ROOT/images" ]] && mkdir -p "$THINDER_ROOT/images"
+		
+		IMAGE_NAME=""
+		IMAGE_VERSION=""
+		while thinder_getopt "${1:-}" opt val; do
+			debug "processing subsubcommand option $opt"
+			case $opt in
+				--name)
+					if [[ "$val" == "" ]]; then
+						critical "$opt expects a parameter"
+						exit 1
+					fi
+					IMAGE_NAME="$val"
+					;;
+				--version)
+					if [[ "$val" == "" ]]; then
+						critical "$opt expects a parameter"
+						exit 1
+					fi
+					IMAGE_VERSION="$val"
+					;;
+				*)
+					critical "unknown option: $opt"
+					exit 1
+			esac
+			shift
+		done
+		
+		if thinder_get_instance_id_from_string "$1" INSTANCE_ID; then
+			if is_instance_running $INSTANCE_ID; then
+				warning "Instance '$1' is running"
+			fi
+			get_uid NEW_ID
+			
+			import_config_file "$THINDER_ROOT/instances/${INSTANCE_ID}/meta"
+			INSTANCE_NAME="$name"
+			
+			info "Exporting instance '$INSTANCE_NAME'..."
+			
+			if [[ "$IMAGE_NAME" = "" ]]; then
+				IMAGE_NAME="${INSTANCE_NAME}"
+			fi
+			
+			if [[ "$IMAGE_VERSION" = "" ]]; then
+				c=1
+				thinder_get_image_id_from_name_and_version "$IMAGE_NAME" "$c" oid || true
+				while [[ ! "$oid" == "" ]]; do
+					(( c++ ))
+					thinder_get_image_id_from_name_and_version "$IMAGE_NAME" "$c" oid || true
+				done
+				IMAGE_VERSION="$c"
+			fi
+			
+			
+			if thinder_get_image_id_from_name_and_version "$IMAGE_NAME" "$IMAGE_VERSION" oid; then
+				critical "Image with name '$IMAGE_NAME' and version '$IMAGE_VERSION' already exists"
+				exit 1
+			fi
+			
+			info "The image shall be named '$IMAGE_NAME' and version '$IMAGE_VERSION'"
+			
+			# TODO: depencency on btrfs, if the user doesn't use BTRFS, this should be handled by a simple cp
+			mkdir "$THINDER_ROOT/images/$NEW_ID"
+			btrfs subvolume snapshot "$THINDER_ROOT/instances/$INSTANCE_ID/root" "$THINDER_ROOT/images/$NEW_ID/payload" > /dev/null
+			cp "$THINDER_ROOT/instances/$INSTANCE_ID/thinderfile" "$THINDER_ROOT/images/$NEW_ID/thinderfile"
+			cat > "$THINDER_ROOT/images/$NEW_ID/meta" <<EOL
+name=${IMAGE_NAME}
+version=${IMAGE_VERSION}
+creationdate=$(date +"%Y-%m-%d %H:%M:%S")
+EOL
+
+			notice "Instance '$INSTANCE_NAME' exported to an image succesfully"
+			
+			info "Image ID is $NEW_ID"
+		else
+			error "instance '$1' not found" && exit 1
+		fi
 		;;
 	*)
 		critical "'${1}' is not a valid $file subcommand"
