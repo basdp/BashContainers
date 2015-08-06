@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -o errexit -o nounset -o pipefail; shopt -s nullglob
+set +m
 root=${0%/*}
 file=$(basename "${BASH_SOURCE[0]}")
 
@@ -11,6 +12,7 @@ include lib/fileservices.sh
 include lib/config.sh 
 include lib/os.sh
 include lib/lock.sh
+include lib/network.sh
 
 set_thinder_command "Manage instances" "instances"
 
@@ -141,7 +143,7 @@ EOL
 		;;
 	list)
 		shift
-		printf "ID\t\tActive\tName\t\t\tDate\t\t\tBase\t\t\tSize\n"
+		printf "ID\t\tActive\tName\t\t\tDate\t\t\tBase\t\t\tSize\t\tIP\n"
 		hasinstances=0
 		for instance in "$THINDER_ROOT/instances/"*; do
 			if [[ -d "$instance" ]] && [[ -f "$instance/meta" ]]; then
@@ -152,8 +154,12 @@ EOL
 				get_btrfs_subvolume_size "$instance" disksize
 				disksize="$(echo $disksize | human)"
 				active=" "
-				is_instance_running "$ID" && active='*'
-				printf "$ID\t$active\t%-24s%-24s%-24s$disksize\n" $name "$creationdate" "$image_name:$image_version"
+				ip=""
+				if is_instance_running "$ID"; then
+					active='*'
+					ip="$(cat $instance/ip_address)"
+				fi
+				printf "$ID\t$active\t%-24s%-24s%-24s$disksize\t$ip\n" $name "$creationdate" "$image_name:$image_version"
 			fi
 		done
 		if [[ hasinstances -eq 0 ]]; then
@@ -172,6 +178,7 @@ EOL
 			fi
 			btrfs_recursive_delete "$THINDER_ROOT/instances/$INSTANCE_ID/root"
 			rm -rf "$THINDER_ROOT/instances/$INSTANCE_ID"
+			
 			notice "instance with ID '$INSTANCE_ID' has been deleted"
 			exit 0
 		else
@@ -199,6 +206,7 @@ EOL
 		
 		[[ "${1:-}" == "" ]] && critical "thinder instance start requires an INSTANCE parameter" && exit 1
 		thinder_check_storage || (critical "Storage is not sane, starting an instance is not possible" && exit 1)
+		thinder_check_network_environment || (critical "Network is not sane, starting an instance is not possible" && exit 1)
 		if thinder_get_instance_id_from_string "$1" INSTANCE_ID; then
 			if is_instance_running $INSTANCE_ID; then 
 				critical "Instance $INSTANCE_ID is already running"
@@ -210,23 +218,49 @@ EOL
 			cgset -r cpuset.mems=0 "thinder_$INSTANCE_ID"
 			cgset -r memory.limit_in_bytes=512000000 "thinder_$INSTANCE_ID"
 			
-			inject_thinder_init "$THINDER_ROOT/instances/$INSTANCE_ID/root"
+			#inject_thinder_init "$THINDER_ROOT/instances/$INSTANCE_ID/root"
+			
+			[[ ! -f "$THINDER_ROOT/last_allocated_ip" ]] && echo 1 > "$THINDER_ROOT/last_allocated_ip"
+			echo "$(( $(cat $THINDER_ROOT/last_allocated_ip) + 1 ))" > "$THINDER_ROOT/last_allocated_ip"
+			ip="$(cat "$THINDER_ROOT/last_allocated_ip")"
+			if [[ "$ip" -ge 255 ]]; then
+				info "IP rotation has reached 255, returning to 2"
+				echo 2 > "$THINDER_ROOT/last_allocated_ip"
+				ip="2"
+			fi
+			
+			nsid="${INSTANCE_ID:0:5}"
+			ip link del dev veth0_"$nsid" > /dev/null 2>&1 || true
+			ip netns del netns_"$nsid" > /dev/null 2>&1 || true
+			ip link add dev veth0_"$nsid" type veth peer name veth1_"$nsid"
+			ip link set dev veth0_"$nsid" up
+			ip link set veth0_"$nsid" master thinder0
+			ip netns add netns_"$nsid"
+			ip link set veth1_"$nsid" netns netns_"$nsid"
+			ip netns exec netns_"$nsid" ip link set dev lo up
+			ip netns exec netns_"$nsid" ip link set veth1_"$nsid" address 02:42:ac:11:00:"$ip"
+			ip netns exec netns_"$nsid" ip addr add 10.20.0."$ip"/24 dev veth1_"$nsid"
+			ip netns exec netns_"$nsid" ip link set dev veth1_"$nsid" up
+			ip netns exec netns_"$nsid" ip route add default via 10.20.0.1
 			
 			nohup \
 			cgexec -g "$cgroups:/thinder_$INSTANCE_ID" \
+			ip netns exec netns_"$nsid" \
 			unshare -fmuip --mount-proc \
 			chroot "$THINDER_ROOT/instances/$INSTANCE_ID/root" \
-			/sbin/init > "$THINDER_ROOT/instances/$INSTANCE_ID/instance.log" 2>&1 || true &
-			
+			/sbin/init > "$THINDER_ROOT/instances/$INSTANCE_ID/instance.log" 2>&1 &
 			isolation_pid=$!
-			while [[ ! "$(ps -p $isolation_pid -o comm=)" == "unshare" ]]; do
-				isolation_pid=$(ps -o pid --no-headers --ppid ${isolation_pid} | awk '{print $1}')
+			sleep 1
+			while [[ ! "$(ps -p "$isolation_pid" -o comm=)" == "unshare" ]]; do
+				isolation_pid=$(ps -o pid --no-headers --ppid "${isolation_pid}" || true | awk '{print $1}')
 			done
 			debug "Isolation PID is $isolation_pid"
 			pid=$(ps -o pid --no-headers --ppid ${isolation_pid} | awk '{print $1}')
 			info "Container PID is $pid"
+			info "Container IP is 10.20.0.$ip"
 			notice "Instance with ID $INSTANCE_ID has been started"
 			echo "$pid" > "$THINDER_ROOT/instances/$INSTANCE_ID/running.pid"
+			echo 10.20.0."$ip" > "$THINDER_ROOT/instances/$INSTANCE_ID/ip_address"
 			
 			if $attach; then
 				thinder_instance_exec "$INSTANCE_ID" "login"
@@ -275,6 +309,10 @@ EOL
 			if is_instance_running $INSTANCE_ID; then
 				pid=`cat "$THINDER_ROOT/instances/$INSTANCE_ID/running.pid"`
 				killtree $pid
+				mount | grep "\son\s$THINDER_ROOT/instances/$INSTANCE_ID/root" | awk '{print $3}' | xargs -n1 umount -f > /dev/null 2>&1 || true 
+				nsid="${INSTANCE_ID:0:5}"
+				ip link del dev veth0_"$nsid"
+				ip netns del netns_"$nsid"
 				notice "Instance $INSTANCE_ID has been killed"
 				rm -f "$THINDER_ROOT/instances/$INSTANCE_ID/running.pid"
 			else
