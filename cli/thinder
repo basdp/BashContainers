@@ -47,12 +47,12 @@ function usage {
 	echo "Commands:"
 	pushd $root > /dev/null
 	for subcmd in *; do
-		if [[ -d "$root/$subcmd" ]] && [[ -f "$root/${subcmd}/${subcmd}" ]] && [[ $subcmd == "${file}-"* ]]; then
+		if [[ -d "$subcmd" ]] && [[ -f "${subcmd}/${subcmd}" ]] && [[ $subcmd == "${file}-"* ]]; then
 			local name=${subcmd:cmdlen+1}
 			echo -n "    ${name}"
 			local n=$((16-${#name}))
 			printf ' %.0s' $(seq 1 $n)
-			local descr="$("${root}/${subcmd}/${subcmd}" __descr)"
+			local descr="$("${subcmd}/${subcmd}" __descr)"
 			
 			echo -n $descr | sed '1!d'
 			aliases=$(echo -n "$descr" | sed '2!d')
@@ -116,7 +116,7 @@ function run_command {
 
 if [[ ! "${1:-}" == "" ]]; then
 	subcmd=$1
-	if [[ -d "${file}-${subcmd}" ]] && [[ -f "${file}-${subcmd}/${file}-${subcmd}" ]]; then
+	if [[ -d "$root/${file}-${subcmd}" ]] && [[ -f "$root/${file}-${subcmd}/${file}-${subcmd}" ]]; then
 		shift
 		run_command "$root/${file}-${subcmd}/${file}-${subcmd}" "$@"
 		exit 0
@@ -124,8 +124,8 @@ if [[ ! "${1:-}" == "" ]]; then
 		# hmm, not yet.. maybe it's an alias?
 		pushd $root > /dev/null
 		for po in *; do
-			if [[ -d "$root/$po" ]] && [[ -f "$root/${po}/${po}" ]] && [[ $po == "${file}-"* ]]; then
-				descr="$("${root}/${po}/${po}" __descr)"
+			if [[ -d "$po" ]] && [[ -f "${po}/${po}" ]] && [[ $po == "${file}-"* ]]; then
+				descr="$("${po}/${po}" __descr)"
 				aliases=$(echo -n "$descr" | sed '2!d')
 				
 				if [[ $aliases != "" ]]; then
@@ -133,7 +133,7 @@ if [[ ! "${1:-}" == "" ]]; then
 					for a in "${arr[@]}"; do
 						if [[ "$subcmd" = "$a" ]]; then
 							shift
-							run_command "$root/${po}/${po}" "$@"
+							run_command "${po}/${po}" "$@"
 							popd > /dev/null
 							exit 0
 						fi
