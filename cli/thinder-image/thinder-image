@@ -26,6 +26,9 @@ function usage {
 	echo "        --name=s                 Set the imported image name"
 	echo "        --version=s              Set the imported image version" 
 	echo
+	echo "    export LOCATION              Export an image"
+	echo "        --no-archive             Do not pack the filesystem into an archive"
+	echo
 	echo "    delete ID                    Import an image into the storage environment"
 	echo
 	echo "    rename ID NAME               Rename an image"
@@ -234,6 +237,52 @@ case "${1:-}" in
 		
 		info "Set version of image $1 to '$2'"
 		image_set_version $1 $2
+		;;
+	export)
+		shift
+		archive=true
+		while thinder_getopt "${1:-}" opt val; do
+			debug "processing subsubcommand option $opt"
+			case $opt in
+				--no-archive)
+					archive=false
+					;;
+				*)
+					critical "unknown option: $opt"
+					exit 1
+			esac
+			shift
+		done
+		
+		([[ "${1:-}" == "" ]] || [[ "${2:-}" == "" ]]) && critical "thinder images export requires an IMAGE and LOCATION parameter" && exit 1
+		thinder_check_storage || (critical "Storage is not sane, importing an image is not possible" && exit 1)
+		
+		# check for conflicts 
+		thinder_get_image_id_from_identifier "$1" oid || true
+		if [[ "$oid" == "" ]]; then
+			critical "Image $1 does not exist"
+			exit 1 
+		fi 
+		
+		info "Export image $1 to '$2'"
+		if [[ -e "$2" ]]; then
+			critical "$2 already exists"
+			exit 1
+		fi
+		
+		import_config_file "$THINDER_ROOT/images/$oid/meta"
+		
+		mkdir -p "$2"
+		cp "$THINDER_ROOT/images/$oid/meta" "$2/meta"
+		cp "$THINDER_ROOT/images/$oid/thinderfile" "$2/thinderfile"
+		cp -a "$THINDER_ROOT/images/$oid/payload/" "$2/payload/" # cannot be on a FAT or network disk
+		if $archive; then
+			cd "$2"
+			tar -cpzf payload.tar.gz ./payload/
+			rm -rf ./payload
+		fi
+		
+		notice "Image "$1" exported to $2"
 		;;
 	*)
 		critical "'${1}' is not a valid $file subcommand"
