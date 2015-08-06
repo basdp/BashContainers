@@ -17,4 +17,12 @@ for id in "${ancestry[@]}"; do
 done
 unset IFS
 echo "$1:$2" > "../img.source"
-
+cat > "../meta" <<EOL
+name=${1//[^a-zA-Z0-9\_\-]/_}
+version=${2}
+creationdate=$(date +"%Y-%m-%d %H:%M:%S")
+EOL
+touch ../thinderfile
+echo "done: $name"
+echo run the following command in the image folder to compress the payload:
+echo "# tar -cpzf payload.tar.gz ./payload/ && rm -rf ./payload"
