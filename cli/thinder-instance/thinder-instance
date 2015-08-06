@@ -212,6 +212,8 @@ EOL
 				critical "Instance $INSTANCE_ID is already running"
 				exit 1
 			fi
+			import_config_file "$THINDER_ROOT/instances/$INSTANCE_ID/meta"
+			
 			#nproc alt: $(($(-i "^Processor\(\\s\)\+:" /proc/cpuinfo | wc -l)-1))
 			cgcreate -g "$cgroups:/thinder_$INSTANCE_ID"
 			cgset -r cpuset.cpus=0-$(($(nproc)-1)) "thinder_$INSTANCE_ID" 
@@ -242,13 +244,14 @@ EOL
 			ip netns exec netns_"$nsid" ip addr add 10.20.0."$ip"/24 dev veth1_"$nsid"
 			ip netns exec netns_"$nsid" ip link set dev veth1_"$nsid" up
 			ip netns exec netns_"$nsid" ip route add default via 10.20.0.1
+			cp /etc/resolv.conf "$THINDER_ROOT/instances/$INSTANCE_ID/root/etc/resolv.conf"
 			
 			nohup \
 			cgexec -g "$cgroups:/thinder_$INSTANCE_ID" \
 			ip netns exec netns_"$nsid" \
 			unshare -fmuip --mount-proc \
 			chroot "$THINDER_ROOT/instances/$INSTANCE_ID/root" \
-			/sbin/init > "$THINDER_ROOT/instances/$INSTANCE_ID/instance.log" 2>&1 &
+			mount -a && hostname "$name" && /sbin/init > "$THINDER_ROOT/instances/$INSTANCE_ID/instance.log" 2>&1 &
 			isolation_pid=$!
 			sleep 1
 			while [[ ! "$(ps -p "$isolation_pid" -o comm=)" == "unshare" ]]; do
