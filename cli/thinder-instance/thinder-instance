@@ -265,8 +265,8 @@ EOL
 			echo "$pid" > "$THINDER_ROOT/instances/$INSTANCE_ID/running.pid"
 			echo 10.20.0."$ip" > "$THINDER_ROOT/instances/$INSTANCE_ID/ip_address"
 			
-			thinder_instance_exec "$INSTANCE_ID" mount -a
-			thinder_instance_exec "$INSTANCE_ID" hostname "$name" 
+			thinder_instance_exec "$INSTANCE_ID" "mount -a"
+			thinder_instance_exec "$INSTANCE_ID" "hostname \"$name\""
 			
 			if $attach; then
 				thinder_instance_exec "$INSTANCE_ID" "login"
