@@ -251,7 +251,7 @@ EOL
 			ip netns exec netns_"$nsid" \
 			unshare -fmuip --mount-proc \
 			chroot "$THINDER_ROOT/instances/$INSTANCE_ID/root" \
-			mount -a && hostname "$name" && /sbin/init > "$THINDER_ROOT/instances/$INSTANCE_ID/instance.log" 2>&1 &
+			/sbin/init > "$THINDER_ROOT/instances/$INSTANCE_ID/instance.log" 2>&1 &
 			isolation_pid=$!
 			sleep 1
 			while [[ ! "$(ps -p "$isolation_pid" -o comm=)" == "unshare" ]]; do
@@ -264,6 +264,9 @@ EOL
 			notice "Instance with ID $INSTANCE_ID has been started"
 			echo "$pid" > "$THINDER_ROOT/instances/$INSTANCE_ID/running.pid"
 			echo 10.20.0."$ip" > "$THINDER_ROOT/instances/$INSTANCE_ID/ip_address"
+			
+			thinder_instance_exec "$INSTANCE_ID" mount -a
+			thinder_instance_exec "$INSTANCE_ID" hostname "$name" 
 			
 			if $attach; then
 				thinder_instance_exec "$INSTANCE_ID" "login"
