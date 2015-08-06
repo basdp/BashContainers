@@ -170,7 +170,7 @@ EOL
 				critical "Instance $INSTANCE_ID is running, please kill it first"
 				exit 1
 			fi
-			btrfs subvolume delete "$THINDER_ROOT/instances/$INSTANCE_ID/root" > /dev/null
+			btrfs_recursive_delete "$THINDER_ROOT/instances/$INSTANCE_ID/root"
 			rm -rf "$THINDER_ROOT/instances/$INSTANCE_ID"
 			notice "instance with ID '$INSTANCE_ID' has been deleted"
 			exit 0

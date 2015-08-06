@@ -66,3 +66,12 @@ function get_btrfs_subvolume_size {
 	local excl=$(btrfs qgroup show "$THINDER_ROOT" | grep "[0-9]\+\/${id}\s" | awk '{print $3}')
 	local "$2" && upvar $2 "${excl}";
 }
+
+function btrfs_recursive_delete {
+	# $1 subvolume
+	local subvols=$(subvolume list "$1" -o | awk '{print "\""$9"\""}')
+	for subvol in subvols; do
+		btrfs_recursive_delte "$THINDER_ROOT/$subvol"
+	done
+	echo btrfs subvolume delete "$1" > /dev/null
+}
