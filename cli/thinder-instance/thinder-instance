@@ -245,7 +245,7 @@ EOL
 			ip netns exec netns_"$nsid" ip link set dev veth1_"$nsid" up
 			ip netns exec netns_"$nsid" ip route add default via 10.20.0.1
 			cp /etc/resolv.conf "$THINDER_ROOT/instances/$INSTANCE_ID/root/etc/resolv.conf"
-			hostname=${name//[^a-zA-Z0-9]/_}
+			hostname=${name//[^a-zA-Z0-9]/-}
 			
 			nohup \
 			cgexec -g "$cgroups:/thinder_$INSTANCE_ID" \
@@ -269,8 +269,8 @@ EOL
 			thinder_instance_exec "$INSTANCE_ID" "mount -a" || true
 			thinder_instance_exec "$INSTANCE_ID" "hostname \"$hostname\"" || true
 			sed -i -- 's/^\s*127\.0\.0\.1\s\+.*$//g' "$THINDER_ROOT/instances/$INSTANCE_ID/root/etc/hosts"
-			echo "127.0.0.1\tlocalhost" >> "$THINDER_ROOT/instances/$INSTANCE_ID/root/etc/hosts"
-			echo "127.0.0.1\t$hostname" >> "$THINDER_ROOT/instances/$INSTANCE_ID/root/etc/hosts"
+			echo -e "127.0.0.1\tlocalhost" >> "$THINDER_ROOT/instances/$INSTANCE_ID/root/etc/hosts"
+			echo -e "127.0.0.1\t$hostname" >> "$THINDER_ROOT/instances/$INSTANCE_ID/root/etc/hosts"
 			
 			if $attach; then
 				thinder_instance_exec "$INSTANCE_ID" "login"
