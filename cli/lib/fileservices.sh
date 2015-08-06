@@ -69,7 +69,7 @@ function get_btrfs_subvolume_size {
 
 function btrfs_recursive_delete {
 	# $1 subvolume
-	local subvols=$(subvolume list "$1" -o | awk '{print "\""$9"\""}')
+	local subvols=$(btrfs subvolume list "$1" -o | awk '{print "\""$9"\""}')
 	for subvol in subvols; do
 		btrfs_recursive_delte "$THINDER_ROOT/$subvol"
 	done
