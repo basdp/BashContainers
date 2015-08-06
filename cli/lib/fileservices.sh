@@ -71,7 +71,7 @@ function btrfs_recursive_delete {
 	# $1 subvolume
 	local subvols=$(btrfs subvolume list "$1" -o | awk '{print "\""$9"\""}')
 	for subvol in subvols; do
-		btrfs_recursive_delte "$THINDER_ROOT/$subvol"
+		btrfs_recursive_delete "$THINDER_ROOT/$subvol"
 	done
 	echo btrfs subvolume delete "$1" > /dev/null
 }
