@@ -60,7 +60,7 @@ function thinder_instance_exec {
 			pid=`cat "$THINDER_ROOT/instances/$INSTANCE_ID/running.pid"`
 			cmd="$2"
 			! ${3:-false} && cmd="env - TERM=xterm $cmd"
-			nsenter -t $pid -m -u -i -n -p chroot "$THINDER_ROOT/instances/$INSTANCE_ID/root" sh -c "$cmd"
+			nsenter -t $pid -m -u -i -n -p chroot "$THINDER_ROOT/instances/$INSTANCE_ID/root" sh -c "$cmd" || true
 		else
 			critical "Instance $INSTANCE_ID is not running"
 		fi
@@ -266,8 +266,8 @@ EOL
 			echo "$pid" > "$THINDER_ROOT/instances/$INSTANCE_ID/running.pid"
 			echo 10.20.0."$ip" > "$THINDER_ROOT/instances/$INSTANCE_ID/ip_address"
 			
-			thinder_instance_exec "$INSTANCE_ID" "mount -a"
-			thinder_instance_exec "$INSTANCE_ID" "hostname \"$hostname\""
+			thinder_instance_exec "$INSTANCE_ID" "mount -a" || true
+			thinder_instance_exec "$INSTANCE_ID" "hostname \"$hostname\"" || true
 			sed -i -- 's/^\s*127\.0\.0\.1\s\+.*$//g' "$THINDER_ROOT/instances/$INSTANCE_ID/root/etc/hosts"
 			echo "127.0.0.1\tlocalhost" >> "$THINDER_ROOT/instances/$INSTANCE_ID/root/etc/hosts"
 			echo "127.0.0.1\t$hostname" >> "$THINDER_ROOT/instances/$INSTANCE_ID/root/etc/hosts"
