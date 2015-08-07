@@ -138,8 +138,8 @@ if [[ ! "${1:-}" == "" ]]; then
 					for a in "${arr[@]}"; do
 						if [[ "$subcmd" = "$a" ]]; then
 							shift
-							run_command "${po}/${po}" "$@"
 							popd > /dev/null
+							run_command "$root/${po}/${po}" "$@"
 							exit 0
 						fi
 					done
