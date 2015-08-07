@@ -1,6 +1,7 @@
 # Image creation guide
 
 ## Raspbian
+**Note:** This doesn't nessesarily have to be done on an ARMv7 device.
 ```
 wget http://downloads.raspberrypi.org/raspbian_latest
 unzip raspbian_latest
